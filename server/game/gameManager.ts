@@ -1,0 +1,55 @@
+import { Game, Player } from "./types";
+import { startGame } from "./stateMachine";
+import { nanoid } from "../utils/id";
+import { broadcastGame } from "./wsManager";
+
+const games = new Map<string, Game>();
+
+export function createGame(): Game {
+  const game: Game = {
+    id: nanoid(),
+    status: "lobby",
+    players: [],
+    currentPlayerIndex: 0,
+    round: 0,
+    roundState: null,
+  };
+  games.set(game.id, game);
+  return game;
+}
+
+export function getGame(id: string): Game {
+  const g = games.get(id);
+  if (!g) throw new Error("game-not-found");
+  return g;
+}
+
+export function addPlayer(game: Game, name: string): Player {
+  const p: Player = {
+    id: nanoid(),
+    name,
+    ready: false,
+    scorecard: { chance: null },
+  };
+  game.players.push(p);
+  return p;
+}
+
+export function readyPlayer(game: Game, playerId: string) {
+  const p = game.players.find((p) => p.id === playerId);
+  if (!p) throw new Error("player-not-found");
+  p.ready = true;
+
+  if (game.players.length >= 2 && game.players.every((p) => p.ready)) {
+    startGame(game);
+    broadcastGame(game);
+  }
+}
+
+export function listGames() {
+  return [...games.values()].map((g) => ({
+    id: g.id,
+    status: g.status,
+    players: g.players.map((p) => p.name),
+  }));
+}

@@ -1,6 +1,155 @@
+<script setup lang="ts">
+import { ref, computed } from "vue";
+
+const gameId = ref<string | null>(null);
+const playerId = ref<string | null>(null);
+const name = ref("player");
+
+const { status, data, send, open, close } = useWebSocket(`/ws/game`);
+const game = ref<any>(null);
+
+const games = ref<{ id: string; status: string; players: string[] }[]>([]);
+
+const isMyTurn = computed(() => {
+  if (!game.value || !playerId.value) return false;
+  return (
+    game.value.players[game.value.currentPlayerIndex]?.id === playerId.value
+  );
+});
+
+async function createGame() {
+  const g = await $fetch("/api/games", { method: "POST" });
+
+  gameId.value = g.id;
+}
+
+async function joinGame() {
+  if (!gameId.value) return;
+
+  const p = await $fetch(`/api/games/${gameId.value}/join`, {
+    method: "POST",
+    body: { name: name.value },
+  });
+
+  playerId.value = p.id;
+}
+
+async function loadGames() {
+  games.value =
+    await $fetch<{ id: string; status: string; players: string[] }[]>(
+      "/api/games",
+    );
+}
+
+async function readyUp() {
+  connectWS();
+
+  const x = await $fetch(`/api/games/${gameId.value}/ready`, {
+    method: "POST",
+    body: { playerId: playerId.value },
+  });
+}
+
+function connectWS() {
+  send(
+    JSON.stringify({
+      gameId: gameId.value,
+      playerId: playerId.value,
+      action: "",
+    }),
+  );
+
+  watch(data, (newValue) => {
+    const msg = JSON.parse(newValue);
+
+    if (msg.type === "state") game.value = msg.game;
+    if (msg.type === "error") alert(msg.message);
+  });
+}
+
+function roll() {
+  send(
+    JSON.stringify({
+      gameId: gameId.value,
+      playerId: playerId.value,
+      action: "roll",
+    }),
+  );
+}
+
+function hold(i: number) {
+  const held = [...game.value.roundState.held];
+  held[i] = !held[i];
+  send(
+    JSON.stringify({
+      gameId: gameId.value,
+      playerId: playerId.value,
+      action: "hold",
+      payload: { held },
+    }),
+  );
+}
+
+function score() {
+  send(
+    JSON.stringify({
+      gameId: gameId.value,
+      playerId: playerId.value,
+      action: "score",
+      payload: { category: "chance" },
+    }),
+  );
+}
+</script>
+
 <template>
   <div>
-    <NuxtRouteAnnouncer />
-    <NuxtWelcome />
+    <h1>Würfelpoker Test</h1>
+
+    <div>
+      <button @click="loadGames">Spiele laden</button>
+
+      <div v-for="g in games" :key="g.id">
+        <span>{{ g.id }} ({{ g.players.length }} Spieler)</span>
+        <button @click="gameId = g.id">Beitreten</button>
+      </div>
+    </div>
+
+    <div v-if="!gameId">
+      <button @click="createGame">Game erstellen</button>
+    </div>
+
+    <div v-else-if="!playerId">
+      <input v-model="name" />
+      <button @click="joinGame">Beitreten</button>
+    </div>
+
+    <div v-else-if="!game || game.status === 'lobby'">
+      <button @click="readyUp">Ready</button>
+    </div>
+
+    <div v-else>
+      <h3>Spiel {{ game.id }}</h3>
+      <p>Am Zug: {{ game.players[game.currentPlayerIndex].name }}</p>
+
+      <div v-if="game.roundState">
+        <div>
+          <span
+            v-for="(d, i) in game.roundState.dice"
+            :key="i"
+            style="cursor: pointer; margin: 5px"
+            @click="isMyTurn && hold(i)"
+          >
+            {{ d }}
+            <span v-if="game.roundState.held[i]">[H]</span>
+          </span>
+        </div>
+
+        <p>Würfe übrig: {{ game.roundState.rollsLeft }}</p>
+
+        <button @click="roll" :disabled="!isMyTurn">Roll</button>
+        <button @click="score" :disabled="!isMyTurn">Score (Chance)</button>
+      </div>
+    </div>
   </div>
 </template>
