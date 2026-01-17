@@ -14,17 +14,21 @@ export function createGame(): Game {
     round: 0,
     roundState: null,
   };
+
   games.set(game.id, game);
   return game;
 }
 
 export function getGame(id: string): Game {
   const g = games.get(id);
+
   if (!g) throw new Error("game-not-found");
   return g;
 }
 
 export function addPlayer(game: Game, name: string): Player {
+  if (game.status !== "lobby") throw new Error("game-already-started");
+
   const p: Player = {
     id: nanoid(),
     name,
@@ -42,12 +46,14 @@ export function addPlayer(game: Game, name: string): Player {
       fiveKind: null,
     },
   };
+
   game.players.push(p);
   return p;
 }
 
 export function readyPlayer(game: Game, playerId: string) {
   const p = game.players.find((p) => p.id === playerId);
+
   if (!p) throw new Error("player-not-found");
   p.ready = true;
 

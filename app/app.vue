@@ -26,12 +26,15 @@ async function createGame() {
 async function joinGame() {
   if (!gameId.value) return;
 
-  const p = await $fetch(`/api/games/${gameId.value}/join`, {
-    method: "POST",
-    body: { name: name.value },
-  });
-
-  playerId.value = p.id;
+  try {
+    const p = await $fetch(`/api/games/${gameId.value}/join`, {
+      method: "POST",
+      body: { name: name.value },
+    });
+    playerId.value = p.id;
+  } catch (e: any) {
+    alert(e.data?.message ?? "Unbekannter Fehler");
+  }
 }
 
 async function loadGames() {
@@ -44,10 +47,14 @@ async function loadGames() {
 async function readyUp() {
   connectWS();
 
-  const x = await $fetch(`/api/games/${gameId.value}/ready`, {
-    method: "POST",
-    body: { playerId: playerId.value },
-  });
+  try {
+    await $fetch(`/api/games/${gameId.value}/ready`, {
+      method: "POST",
+      body: { playerId: playerId.value },
+    });
+  } catch (e: any) {
+    alert(e.data?.message ?? "Unbekannter Fehler");
+  }
 }
 
 function connectWS() {
