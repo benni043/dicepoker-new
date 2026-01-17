@@ -1,4 +1,5 @@
 export type GameStatus = "lobby" | "running" | "finished";
+export type StraightType = "small" | "big" | "both";
 
 export interface Player {
   id: string;
