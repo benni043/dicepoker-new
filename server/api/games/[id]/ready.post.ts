@@ -6,6 +6,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     readyPlayer(game, playerId);
+
     return { ok: true };
   } catch (e: any) {
     throw createError({ statusCode: 400, message: e.message });

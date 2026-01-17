@@ -6,6 +6,7 @@ export interface Player {
   socketId?: string;
   ready: boolean;
   scorecard: Record<string, number | null>;
+  sum: number;
 }
 
 export interface RoundState {
@@ -18,7 +19,9 @@ export interface Game {
   id: string;
   status: GameStatus;
   players: Player[];
+  playerCount: number;
   currentPlayerIndex: number;
   round: number;
   roundState: RoundState | null;
+  winner: Player | null;
 }

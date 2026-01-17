@@ -2,17 +2,20 @@ import { Game, Player } from "./types";
 import { startGame } from "./stateMachine";
 import { nanoid } from "../utils/id";
 import { broadcastGame } from "./wsManager";
+import { assertGameNotStarted } from "~~/server/game/validation";
 
 const games = new Map<string, Game>();
 
-export function createGame(): Game {
+export function createGame(playerCount: number): Game {
   const game: Game = {
     id: nanoid(),
     status: "lobby",
     players: [],
+    playerCount: playerCount,
     currentPlayerIndex: 0,
     round: 0,
     roundState: null,
+    winner: null,
   };
 
   games.set(game.id, game);
@@ -27,7 +30,7 @@ export function getGame(id: string): Game {
 }
 
 export function addPlayer(game: Game, name: string): Player {
-  if (game.status !== "lobby") throw new Error("game-already-started");
+  assertGameNotStarted(game);
 
   const p: Player = {
     id: nanoid(),
@@ -36,15 +39,16 @@ export function addPlayer(game: Game, name: string): Player {
     scorecard: {
       ones: null,
       twos: null,
-      threes: null,
-      fours: null,
-      fives: null,
-      sixes: null,
-      fullHouse: null,
-      street: null,
-      fourKind: null,
-      fiveKind: null,
+      // threes: null,
+      // fours: null,
+      // fives: null,
+      // sixes: null,
+      // fullHouse: null,
+      // street: null,
+      // fourKind: null,
+      // fiveKind: null,
     },
+    sum: 0,
   };
 
   game.players.push(p);
@@ -57,7 +61,10 @@ export function readyPlayer(game: Game, playerId: string) {
   if (!p) throw new Error("player-not-found");
   p.ready = true;
 
-  if (game.players.length >= 2 && game.players.every((p) => p.ready)) {
+  if (
+    game.players.length === game.playerCount &&
+    game.players.every((p) => p.ready)
+  ) {
     startGame(game);
     broadcastGame(game);
   }

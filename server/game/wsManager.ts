@@ -13,7 +13,8 @@ export function unregisterPeer(playerId: string) {
 
 export function broadcastGame(game: Game) {
   for (const player of game.players) {
-    const peer = peers.get(player.id!)!;
+    const peer = peers.get(player.id);
+    if (!peer) continue;
 
     peer.send(JSON.stringify({ type: "state", game }));
   }

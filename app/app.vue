@@ -18,20 +18,24 @@ const isMyTurn = computed(() => {
 });
 
 async function createGame() {
-  const g = await $fetch("/api/games", { method: "POST" });
+  const game = await $fetch("/api/games", {
+    method: "POST",
+    body: { playerCount: 2 },
+  });
 
-  gameId.value = g.id;
+  gameId.value = game.id;
 }
 
 async function joinGame() {
   if (!gameId.value) return;
 
   try {
-    const p = await $fetch(`/api/games/${gameId.value}/join`, {
+    const player = await $fetch(`/api/games/${gameId.value}/join`, {
       method: "POST",
       body: { name: name.value },
     });
-    playerId.value = p.id;
+
+    playerId.value = player.id;
   } catch (e: any) {
     alert(e.data?.message ?? "Unbekannter Fehler");
   }
@@ -45,13 +49,13 @@ async function loadGames() {
 }
 
 async function readyUp() {
-  connectWS();
-
   try {
     await $fetch(`/api/games/${gameId.value}/ready`, {
       method: "POST",
       body: { playerId: playerId.value },
     });
+
+    connectWS();
   } catch (e: any) {
     alert(e.data?.message ?? "Unbekannter Fehler");
   }
@@ -62,14 +66,18 @@ function connectWS() {
     JSON.stringify({
       gameId: gameId.value,
       playerId: playerId.value,
-      action: "",
+      action: "init",
     }),
   );
 
   watch(data, (newValue) => {
     const msg = JSON.parse(newValue);
 
-    if (msg.type === "state") game.value = msg.game;
+    if (msg.type === "state") {
+      game.value = msg.game;
+
+      console.log(game.value);
+    }
     if (msg.type === "error") alert(msg.message);
   });
 }

@@ -1,5 +1,7 @@
 import { createGame } from "../../game/gameManager";
 
-export default defineEventHandler(() => {
-  return createGame();
+export default defineEventHandler(async (event) => {
+  const { playerCount } = await readBody(event);
+
+  return createGame(playerCount);
 });

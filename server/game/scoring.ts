@@ -13,20 +13,20 @@ export const SCORERS: Record<
 > = {
   ones: scoreOnes,
   twos: scoreTwos,
-  threes: scoreThrees,
-  fours: scoreFours,
-  fives: scoreFives,
-  sixes: scoreSixes,
-  fullHouse: () => {
-    return 0;
-  },
-  street: () => {
-    return 0;
-  },
-  fourKind: scoreFourOfKind,
-  fiveKind: () => {
-    return 0;
-  },
+  // threes: scoreThrees,
+  // fours: scoreFours,
+  // fives: scoreFives,
+  // sixes: scoreSixes,
+  // fullHouse: () => {
+  //   return 0;
+  // },
+  // street: () => {
+  //   return 0;
+  // },
+  // fourKind: scoreFourOfKind,
+  // fiveKind: () => {
+  //   return 0;
+  // },
 };
 
 function countDice(dice: number[]): Record<number, number> {

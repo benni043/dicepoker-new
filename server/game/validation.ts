@@ -8,3 +8,11 @@ export function assertCurrentPlayer(game: Game, playerId: string) {
 export function assertCurrentTurn(game: Game) {
   if (game.roundState?.rollsLeft === 3) throw new Error("must-throw-once");
 }
+
+export function assertGameNotStarted(game: Game) {
+  if (game.status !== "lobby") throw new Error("game-already-started");
+}
+
+export function assertGameNotFinished(game: Game) {
+  if (game.status === "finished") throw new Error("game-already-finished");
+}

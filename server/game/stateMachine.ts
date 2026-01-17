@@ -1,7 +1,12 @@
-import { Game } from "./types";
+import { Game, type Player } from "./types";
 import { rollDice } from "./dice";
 import { SCORERS } from "./scoring";
-import { assertCurrentPlayer, assertCurrentTurn } from "./validation";
+import {
+  assertCurrentPlayer,
+  assertCurrentTurn,
+  assertGameNotFinished,
+} from "./validation";
+import { broadcastGame } from "./wsManager";
 
 export function startGame(game: Game) {
   game.status = "running";
@@ -19,6 +24,7 @@ export function startTurn(game: Game) {
 }
 
 export function roll(game: Game, playerId: string) {
+  assertGameNotFinished(game);
   assertCurrentPlayer(game, playerId);
 
   const rs = game.roundState!;
@@ -30,6 +36,7 @@ export function roll(game: Game, playerId: string) {
 }
 
 export function hold(game: Game, playerId: string, held: boolean[]) {
+  assertGameNotFinished(game);
   assertCurrentPlayer(game, playerId);
   assertCurrentTurn(game);
 
@@ -38,6 +45,7 @@ export function hold(game: Game, playerId: string, held: boolean[]) {
 }
 
 export function score(game: Game, playerId: string, category: string) {
+  assertGameNotFinished(game);
   assertCurrentPlayer(game, playerId);
   assertCurrentTurn(game);
 
@@ -48,13 +56,46 @@ export function score(game: Game, playerId: string, category: string) {
   if (player.scorecard[category] !== null) throw new Error("already-used");
 
   player.scorecard[category] = scorer(game.roundState!.dice, game.roundState!);
+  player.sum = getTotalScore(player);
+
+  if (checkGameOver(game)) {
+    game.status = "finished";
+    game.winner = calculateWinner(game);
+
+    broadcastGame(game);
+
+    return;
+  }
+
   nextPlayer(game);
 }
 
 function nextPlayer(game: Game) {
-  console.log(game.players[game.currentPlayerIndex].scorecard);
-
   game.currentPlayerIndex = (game.currentPlayerIndex + 1) % game.players.length;
 
   startTurn(game);
+}
+
+function checkGameOver(game: Game) {
+  const allFilled = game.players.every((p) =>
+    Object.values(p.scorecard).every((v) => v !== null),
+  );
+
+  if (allFilled) game.status = "finished";
+  return allFilled;
+}
+
+export function getTotalScore(player: Player): number {
+  return Object.values(player.scorecard).reduce(
+    (sum, v) => (sum === null ? 0 : sum + (v ?? 0)),
+    0,
+  )!;
+}
+
+export function calculateWinner(game: Game): Player | null {
+  if (!game.players.length) return null;
+
+  return game.players.reduce((best, p) => {
+    return getTotalScore(p) > getTotalScore(best) ? p : best;
+  }, game.players[0]);
 }
