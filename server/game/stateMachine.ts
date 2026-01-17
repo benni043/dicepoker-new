@@ -8,6 +8,7 @@ import {
 } from "./validation";
 import { broadcastGame } from "./wsManager";
 import { removeGame } from "~~/server/game/gameManager";
+import { throwDice } from "~~/server/game/animate";
 
 export function startGame(game: Game) {
   game.status = "running";
@@ -32,8 +33,23 @@ export function roll(game: Game, playerId: string) {
 
   if (rs.rollsLeft <= 0) throw new Error("no-rolls-left");
 
-  rs.dice = rollDice(rs.dice, rs.held);
+  // rs.dice = rollDice(rs.dice, rs.held);
+
+  //todo holding dice
+  //todo instant update
+  //todo roll multiple
+  throwDice(game);
+
   rs.rollsLeft--;
+}
+
+export function onDiceFinished(game: Game, dice: number[]) {
+  assertGameNotFinished(game);
+
+  const rs = game.roundState!;
+  if (rs.rollsLeft <= 0) throw new Error("no-rolls-left");
+
+  rs.dice = dice;
 }
 
 export function hold(game: Game, playerId: string, held: boolean[]) {

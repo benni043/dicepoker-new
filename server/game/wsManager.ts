@@ -19,3 +19,18 @@ export function broadcastGame(game: Game) {
     peer.send(JSON.stringify({ type: "state", game }));
   }
 }
+
+export function broadcastAnimation(
+  game: Game,
+  diceStates: {
+    position: { x: number; y: number; z: number };
+    quaternion: { x: number; y: number; z: number; w: number };
+  }[],
+) {
+  for (const player of game.players) {
+    const peer = peers.get(player.id);
+    if (!peer) continue;
+
+    peer.send(JSON.stringify({ type: "diceStateUpdate", diceStates }));
+  }
+}
