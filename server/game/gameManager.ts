@@ -29,7 +29,18 @@ export function addPlayer(game: Game, name: string): Player {
     id: nanoid(),
     name,
     ready: false,
-    scorecard: { chance: null },
+    scorecard: {
+      ones: null,
+      twos: null,
+      threes: null,
+      fours: null,
+      fives: null,
+      sixes: null,
+      fullHouse: null,
+      street: null,
+      fourKind: null,
+      fiveKind: null,
+    },
   };
   game.players.push(p);
   return p;

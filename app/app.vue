@@ -90,13 +90,13 @@ function hold(i: number) {
   );
 }
 
-function score() {
+function score(type: string) {
   send(
     JSON.stringify({
       gameId: gameId.value,
       playerId: playerId.value,
       action: "score",
-      payload: { category: "chance" },
+      payload: { category: type },
     }),
   );
 }
@@ -148,7 +148,28 @@ function score() {
         <p>Würfe übrig: {{ game.roundState.rollsLeft }}</p>
 
         <button @click="roll" :disabled="!isMyTurn">Roll</button>
-        <button @click="score" :disabled="!isMyTurn">Score (Chance)</button>
+
+        <button @click="score('ones')" :disabled="!isMyTurn">
+          Score (ones)
+        </button>
+        <button @click="score('twos')" :disabled="!isMyTurn">
+          Score (twos)
+        </button>
+        <button @click="score('threes')" :disabled="!isMyTurn">
+          Score (threes)
+        </button>
+        <button @click="score('fours')" :disabled="!isMyTurn">
+          Score (fours)
+        </button>
+        <button @click="score('fives')" :disabled="!isMyTurn">
+          Score (fives)
+        </button>
+        <button @click="score('sixes')" :disabled="!isMyTurn">
+          Score (sixes)
+        </button>
+        <button @click="score('fourKind')" :disabled="!isMyTurn">
+          Score (fourKind)
+        </button>
       </div>
     </div>
   </div>

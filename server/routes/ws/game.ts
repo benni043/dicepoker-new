@@ -47,7 +47,13 @@ export default defineWebSocketHandler({
 
       broadcastGame(game);
     } catch (e: any) {
-      peer.send(JSON.stringify({ type: "error", message: e.message }));
+      peer.send(
+        JSON.stringify({
+          type: "error",
+          message: e.message,
+          ts: Date.now(),
+        }),
+      );
     }
   },
 });

@@ -1,7 +1,7 @@
 import { Game } from "./types";
 import { rollDice } from "./dice";
 import { SCORERS } from "./scoring";
-import { assertCurrentPlayer } from "./validation";
+import { assertCurrentPlayer, assertCurrentTurn } from "./validation";
 
 export function startGame(game: Game) {
   game.status = "running";
@@ -31,6 +31,7 @@ export function roll(game: Game, playerId: string) {
 
 export function hold(game: Game, playerId: string, held: boolean[]) {
   assertCurrentPlayer(game, playerId);
+  assertCurrentTurn(game);
 
   if (held.length !== 5) throw new Error("invalid-held");
   game.roundState!.held = held;
@@ -38,6 +39,7 @@ export function hold(game: Game, playerId: string, held: boolean[]) {
 
 export function score(game: Game, playerId: string, category: string) {
   assertCurrentPlayer(game, playerId);
+  assertCurrentTurn(game);
 
   const scorer = SCORERS[category];
   if (!scorer) throw new Error("invalid-category");
@@ -50,6 +52,8 @@ export function score(game: Game, playerId: string, category: string) {
 }
 
 function nextPlayer(game: Game) {
+  console.log(game.players[game.currentPlayerIndex].scorecard);
+
   game.currentPlayerIndex = (game.currentPlayerIndex + 1) % game.players.length;
 
   startTurn(game);
