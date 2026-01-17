@@ -1,4 +1,4 @@
-import type { Game, Player } from "./types";
+import type { Game } from "./types";
 import type { Peer } from "crossws";
 
 const peers = new Map<string, Peer>();
