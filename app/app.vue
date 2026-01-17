@@ -30,12 +30,28 @@ async function joinGame() {
   if (!gameId.value) return;
 
   try {
+    const localStorageId = localStorage.getItem("playerId");
+
+    if (localStorageId) {
+      await $fetch(`/api/games/${gameId.value}/rejoin`, {
+        method: "POST",
+        body: { playerId: localStorageId },
+      });
+
+      playerId.value = localStorageId;
+
+      connectWS();
+
+      return;
+    }
+
     const player = await $fetch(`/api/games/${gameId.value}/join`, {
       method: "POST",
       body: { name: name.value },
     });
 
     playerId.value = player.id;
+    localStorage.setItem("playerId", player.id);
   } catch (e: any) {
     alert(e.data?.message ?? "Unbekannter Fehler");
   }
@@ -76,6 +92,10 @@ function connectWS() {
     if (msg.type === "state") {
       game.value = msg.game;
 
+      if (game.value.status === "finished") {
+        removeIdFromLocalStorage();
+      }
+
       console.log(game.value);
     }
     if (msg.type === "error") alert(msg.message);
@@ -115,11 +135,17 @@ function score(type: string) {
     }),
   );
 }
+
+function removeIdFromLocalStorage() {
+  localStorage.removeItem("playerId");
+}
 </script>
 
 <template>
   <div>
     <h1>Würfelpoker Test</h1>
+
+    <button @click="removeIdFromLocalStorage()">remove id from storage</button>
 
     <div>
       <button @click="loadGames">Spiele laden</button>

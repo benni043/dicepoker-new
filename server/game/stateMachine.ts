@@ -7,6 +7,7 @@ import {
   assertGameNotFinished,
 } from "./validation";
 import { broadcastGame } from "./wsManager";
+import { removeGame } from "~~/server/game/gameManager";
 
 export function startGame(game: Game) {
   game.status = "running";
@@ -63,6 +64,7 @@ export function score(game: Game, playerId: string, category: string) {
     game.winner = calculateWinner(game);
 
     broadcastGame(game);
+    removeGame(game);
 
     return;
   }

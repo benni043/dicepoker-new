@@ -30,9 +30,9 @@ export default defineWebSocketHandler({
 
     registerPeer(playerId, peer);
 
-    const game = getGame(gameId);
-
     try {
+      const game = getGame(gameId);
+
       switch (action) {
         case "roll":
           SM.roll(game, playerId);

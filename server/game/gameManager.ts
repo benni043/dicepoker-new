@@ -22,6 +22,10 @@ export function createGame(playerCount: number): Game {
   return game;
 }
 
+export function removeGame(game: Game) {
+  games.delete(game.id);
+}
+
 export function getGame(id: string): Game {
   const g = games.get(id);
 
