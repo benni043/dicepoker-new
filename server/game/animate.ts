@@ -134,7 +134,19 @@ export function initPhysics(game: Game) {
   game.dicePhysics.world.addBody(groundBody);
 
   // Create Dice (Physics Bodies Only)
-  for (let i = 0; i < numDice; i++) {
+  addDice(game, numDice);
+
+  // Add Walls (Invisible Physics Walls)
+  addWall(0, 1, -fieldRadius, 0, 0, 0, wallMaterial, game); // Back physics wall
+  addWall(0, 1, fieldRadius, 0, Math.PI, 0, wallMaterial, game); // Front physics wall
+  addWall(-fieldRadius, 1, 0, 0, Math.PI / 2, 0, wallMaterial, game); // Left physics wall
+  addWall(fieldRadius, 1, 0, 0, -Math.PI / 2, 0, wallMaterial, game); // Right physics wall
+
+  console.log("Cannon.js physics world initialized on server.");
+}
+
+function addDice(game: Game, count: number) {
+  for (let i = 0; i < count; i++) {
     const body = new CANNON.Body({
       mass: 1, // Mass of the die
       shape: new CANNON.Box(
@@ -148,17 +160,9 @@ export function initPhysics(game: Game) {
       angularDamping: 0.05, // Reduces angular velocity over time
     });
 
-    game.dicePhysics.world.addBody(body);
+    game.dicePhysics.world!.addBody(body);
     game.dicePhysics.diceBodies.push(body);
   }
-
-  // Add Walls (Invisible Physics Walls)
-  addWall(0, 1, -fieldRadius, 0, 0, 0, wallMaterial, game); // Back physics wall
-  addWall(0, 1, fieldRadius, 0, Math.PI, 0, wallMaterial, game); // Front physics wall
-  addWall(-fieldRadius, 1, 0, 0, Math.PI / 2, 0, wallMaterial, game); // Left physics wall
-  addWall(fieldRadius, 1, 0, 0, -Math.PI / 2, 0, wallMaterial, game); // Right physics wall
-
-  console.log("Cannon.js physics world initialized on server.");
 }
 
 // --- SERVER ANIMATION LOOP (GLOBAL) ---
@@ -167,7 +171,7 @@ export function initPhysics(game: Game) {
  * It advances the physics, collects dice states, and broadcasts them to clients.
  * @param game
  */
-function serverAnimate(game: Game) {
+function serverAnimate(game: Game, numtoThrow: number) {
   const currentTime = Date.now();
   const dt = (currentTime - game.dicePhysics.lastTime) / 1000; // Time in seconds since last step
   game.dicePhysics.lastTime = currentTime;
@@ -191,7 +195,7 @@ function serverAnimate(game: Game) {
   // Check if dice have settled on the server
   if (game.dicePhysics.rolling) {
     let allStopped = true;
-    for (let i = 0; i < numDice; i++) {
+    for (let i = 0; i < numtoThrow; i++) {
       const body = game.dicePhysics.diceBodies[i];
 
       // Check if both linear and angular velocities are below a small threshold.
@@ -218,7 +222,7 @@ function serverAnimate(game: Game) {
       // Calculate final results
       const results: number[] = [];
       let total = 0;
-      for (let i = 0; i < numDice; i++) {
+      for (let i = 0; i < numtoThrow; i++) {
         const value = determineDiceValue(game.dicePhysics.diceBodies[i]);
         results.push(value);
         total += value;
@@ -232,27 +236,32 @@ function serverAnimate(game: Game) {
 }
 
 export function throwDice(game: Game) {
-  if (game.dicePhysics.rolling) {
-    console.log(
-      "Dice already rolling, ignoring new throw request from another user",
-    );
-    return; // Prevent new throw if dice are already in motion
-  }
+  if (game.dicePhysics.rolling) return;
 
   game.dicePhysics.rolling = true;
-  console.log("Throwing dice requested by a user");
+
+  for (let diceBody of game.dicePhysics.diceBodies) {
+    game.dicePhysics.world!.removeBody(diceBody);
+  }
+
+  game.dicePhysics.diceBodies.length = 0;
+
+  const rs = game.roundState!;
+
+  const numToThrow = rs.held.filter((h) => !h).length;
+
+  addDice(game, numToThrow);
 
   // Apply initial forces to each die in the shared physics world
-  for (let i = 0; i < numDice; i++) {
+  for (let i = 0; i < numToThrow; i++) {
     const body = game.dicePhysics.diceBodies[i];
 
     // Calculate initial position within the field, slightly above ground
-    const startX = (i - (numDice - 1) / 2) * diceSize * 1.5;
+    const startX = (i - (numToThrow - 1) / 2) * diceSize * 1.5;
     const startY = diceHalfExtents + 0.5 + Math.random(); // Start a bit higher off the ground for better drop
     const startZ = (Math.random() - 0.5) * fieldRadius * 0.5; // Random position around center depth
 
     body.position.set(startX, startY, startZ);
-
     // Give each die a random initial orientation
     body.quaternion
       .set(
@@ -281,14 +290,11 @@ export function throwDice(game: Game) {
     );
   }
 
-  // Start the server's animation loop if it's not already running.
-  // The loop will continuously update physics and broadcast states.
+  // 3️⃣ Animation starten, wenn nicht schon aktiv
   if (!game.dicePhysics.intervalId) {
     game.dicePhysics.intervalId = setInterval(
-      () => serverAnimate(game),
+      () => serverAnimate(game, numToThrow),
       1000 / 60,
-    ); // Run at 60 FPS
-
-    console.log("Server animation loop started by throw request from a user");
+    );
   }
 }

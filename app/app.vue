@@ -321,15 +321,24 @@ function connectWS() {
     }
 
     if (msg.type === "diceStateUpdate") {
-      msg.diceStates.forEach((state: any, index: number) => {
-        if (diceMeshes[index]) {
-          diceMeshes[index].position.set(
+      const states = msg.diceStates; // z. B. length = 3 oder 5
+      const numVisible = states.length;
+
+      // Alle Meshes zuerst unsichtbar machen
+      diceMeshes.forEach((mesh, i) => {
+        mesh.visible = i < numVisible;
+      });
+
+      // Dann nur die sichtbaren updaten
+      states.forEach((state: any, index: number) => {
+        const mesh = diceMeshes[index];
+        if (mesh) {
+          mesh.position.set(
             state.position.x,
             state.position.y,
             state.position.z,
           );
-          // Important: use THREE.Quaternion for the mesh
-          diceMeshes[index].quaternion.set(
+          mesh.quaternion.set(
             state.quaternion.x,
             state.quaternion.y,
             state.quaternion.z,
@@ -342,16 +351,6 @@ function connectWS() {
     if (msg.type === "error") alert(msg.message);
   });
 }
-
-// function roll() {
-//   send(
-//     JSON.stringify({
-//       gameId: gameId.value,
-//       playerId: playerId.value,
-//       action: "roll",
-//     }),
-//   );
-// }
 
 function hold(i: number) {
   const held = [...game.value.roundState.held];

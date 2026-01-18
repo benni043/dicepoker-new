@@ -35,21 +35,24 @@ export function roll(game: Game, playerId: string) {
 
   if (rs.rollsLeft <= 0) throw new Error("no-rolls-left");
 
-  // rs.dice = rollDice(rs.dice, rs.held);
-
-  //todo holding dice
   throwDice(game);
 
   rs.rollsLeft--;
 }
 
-export function onDiceFinished(game: Game, dice: number[]) {
+export function onDiceFinished(game: Game, physicsResults: number[]) {
   assertGameNotFinished(game);
+  assertRolling(game);
 
   const rs = game.roundState!;
-  if (rs.rollsLeft < 0) return;
+  let resultIndex = 0;
 
-  rs.dice = dice;
+  for (let i = 0; i < rs.dice.length; i++) {
+    if (!rs.held[i]) {
+      rs.dice[i] = physicsResults[resultIndex];
+      resultIndex++;
+    }
+  }
 
   broadcastGame(game);
 }
@@ -58,6 +61,7 @@ export function hold(game: Game, playerId: string, held: boolean[]) {
   assertGameNotFinished(game);
   assertCurrentPlayer(game, playerId);
   assertCurrentTurn(game);
+  assertRolling(game);
 
   if (held.length !== 5) throw new Error("invalid-held");
   game.roundState!.held = held;
@@ -67,6 +71,7 @@ export function score(game: Game, playerId: string, category: string) {
   assertGameNotFinished(game);
   assertCurrentPlayer(game, playerId);
   assertCurrentTurn(game);
+  assertRolling(game);
 
   const scorer = SCORERS[category];
   if (!scorer) throw new Error("invalid-category");
