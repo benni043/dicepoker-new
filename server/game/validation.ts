@@ -20,3 +20,7 @@ export function assertGameNotFinished(game: Game) {
 export function assertRolling(game: Game) {
   if (game.dicePhysics.rolling) throw new Error("dice-rolling");
 }
+
+export function assertRolesLeft(game: Game) {
+  if (game.roundState?.rollsLeft === 0) throw new Error("no-roles-left");
+}

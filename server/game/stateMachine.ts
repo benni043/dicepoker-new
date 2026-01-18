@@ -5,6 +5,7 @@ import {
   assertCurrentPlayer,
   assertCurrentTurn,
   assertGameNotFinished,
+  assertRolesLeft,
   assertRolling,
 } from "./validation";
 import { broadcastGame } from "./wsManager";
@@ -30,10 +31,9 @@ export function roll(game: Game, playerId: string) {
   assertGameNotFinished(game);
   assertCurrentPlayer(game, playerId);
   assertRolling(game);
+  assertRolesLeft(game);
 
   const rs = game.roundState!;
-
-  if (rs.rollsLeft <= 0) throw new Error("no-rolls-left");
 
   throwDice(game);
 
@@ -62,6 +62,7 @@ export function hold(game: Game, playerId: string, held: boolean[]) {
   assertCurrentPlayer(game, playerId);
   assertCurrentTurn(game);
   assertRolling(game);
+  assertRolesLeft(game);
 
   if (held.length !== 5) throw new Error("invalid-held");
   game.roundState!.held = held;
