@@ -1,4 +1,4 @@
-import type { Game } from "./types";
+import { type Game, toGameDTO } from "./types";
 import type { Peer } from "crossws";
 
 const peers = new Map<string, Peer>();
@@ -16,7 +16,9 @@ export function broadcastGame(game: Game) {
     const peer = peers.get(player.id);
     if (!peer) continue;
 
-    peer.send(JSON.stringify({ type: "state", game }));
+    const gameDTO = toGameDTO(game);
+
+    peer.send(JSON.stringify({ type: "state", gameDTO }));
   }
 }
 

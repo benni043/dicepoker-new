@@ -5,7 +5,6 @@ import * as THREE from "three";
 // --- Reactive State ---
 const canvas = ref(null);
 const diceResults = ref([]);
-const rolling = ref(false);
 
 // --- Three.js Variables ---
 let scene: THREE.Scene;
@@ -200,9 +199,6 @@ function addVisualWall(x: number, y: number, z: number, rotY: number) {
  * Initiates the dice throw by emitting a socket event to the backend.
  */
 function roll() {
-  if (rolling.value) return; // Prevent multiple throws while already rolling
-
-  rolling.value = true; // Indicate that dice are rolling
   diceResults.value = []; // Clear previous results display
 
   // Only emit the event to the server; the server handles the physics.
@@ -315,7 +311,7 @@ function connectWS() {
     const msg = JSON.parse(newValue);
 
     if (msg.type === "state") {
-      game.value = msg.game;
+      game.value = msg.gameDTO;
 
       if (game.value.status === "finished") {
         removeIdFromLocalStorage();
@@ -341,12 +337,6 @@ function connectWS() {
           );
         }
       });
-    }
-
-    if (msg.type === "diceResult") {
-      console.log("Received final results:", msg.results);
-      diceResults.value = msg.results.individual; // Update array of individual results
-      rolling.value = false; // Dice have settled
     }
 
     if (msg.type === "error") alert(msg.message);

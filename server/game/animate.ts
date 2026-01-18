@@ -7,16 +7,10 @@ import { onDiceFinished } from "~~/server/game/stateMachine";
 // These variables are declared outside the handleLobbyEvents function.
 // This ensures they are initialized once when the server starts
 // and persist across all client connections, forming a single source of truth.
-let world: CANNON.World;
-const diceBodies: CANNON.Body[] = [];
 const numDice = 5;
 const fieldRadius = 2.5; // Matches frontend
 const diceSize = 0.5; // Matches frontend
 const diceHalfExtents = diceSize / 2;
-
-let serverRolling = false; // Flag to indicate if dice are currently rolling on the server
-let lastTime = Date.now(); // Used to calculate dt for consistent physics steps
-let animationIntervalId: NodeJS.Timeout | null = null; // Stores the setInterval ID for the physics loop
 
 // --- PHYSICS MATERIALS (GLOBAL) ---
 const groundMaterial = new CANNON.Material("groundMaterial");
@@ -34,6 +28,7 @@ const wallMaterial = new CANNON.Material("wallMaterial");
  * @param rotY Y rotation (Euler angle) of the wall.
  * @param rotZ Z rotation (Euler angle) of the wall.
  * @param material The Cannon.js material for the wall.
+ * @param game
  */
 function addWall(
   x: number,
@@ -43,6 +38,7 @@ function addWall(
   rotY: number,
   rotZ: number,
   material: CANNON.Material,
+  game: Game,
 ) {
   const wall = new CANNON.Body({
     type: CANNON.Body.STATIC, // Wall is fixed in space
@@ -51,7 +47,7 @@ function addWall(
   });
   wall.position.set(x, y, z);
   wall.quaternion.setFromEuler(rotX, rotY, rotZ); // Orient the plane
-  world.addBody(wall);
+  game.dicePhysics.world!.addBody(wall);
 }
 
 /**
@@ -93,9 +89,11 @@ function determineDiceValue(body: CANNON.Body): number {
   return value;
 }
 
-// --- INITIALIZE PHYSICS WORLD (RUNS ONLY ONCE WHEN THE NODE.JS PROCESS STARTS) ---
-function initPhysics() {
-  world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) }); // Standard gravity
+// --- INITIALIZE PHYSICS WORLD ---
+export function initPhysics(game: Game) {
+  game.dicePhysics.world = new CANNON.World({
+    gravity: new CANNON.Vec3(0, -9.82, 0),
+  }); // Standard gravity
 
   // Define how ground and dice interact (friction, bounciness)
   const groundDiceContactMaterial = new CANNON.ContactMaterial(
@@ -108,7 +106,8 @@ function initPhysics() {
       frictionEquationRelaxation: 5,
     },
   );
-  world.addContactMaterial(groundDiceContactMaterial);
+
+  game.dicePhysics.world.addContactMaterial(groundDiceContactMaterial);
 
   // Define how dice and walls interact
   const diceWallContactMaterial = new CANNON.ContactMaterial(
@@ -121,7 +120,8 @@ function initPhysics() {
       frictionEquationRelaxation: 5,
     },
   );
-  world.addContactMaterial(diceWallContactMaterial);
+
+  game.dicePhysics.world.addContactMaterial(diceWallContactMaterial);
 
   // Create the physics ground plane
   const groundBody = new CANNON.Body({
@@ -129,8 +129,9 @@ function initPhysics() {
     shape: new CANNON.Plane(), // Infinite flat plane
     material: groundMaterial,
   });
+
   groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Rotate to be horizontal (facing up)
-  world.addBody(groundBody);
+  game.dicePhysics.world.addBody(groundBody);
 
   // Create Dice (Physics Bodies Only)
   for (let i = 0; i < numDice; i++) {
@@ -146,21 +147,19 @@ function initPhysics() {
       linearDamping: 0.05, // Reduces linear velocity over time
       angularDamping: 0.05, // Reduces angular velocity over time
     });
-    world.addBody(body);
-    diceBodies.push(body);
+
+    game.dicePhysics.world.addBody(body);
+    game.dicePhysics.diceBodies.push(body);
   }
 
   // Add Walls (Invisible Physics Walls)
-  addWall(0, 1, -fieldRadius, 0, 0, 0, wallMaterial); // Back physics wall
-  addWall(0, 1, fieldRadius, 0, Math.PI, 0, wallMaterial); // Front physics wall
-  addWall(-fieldRadius, 1, 0, 0, Math.PI / 2, 0, wallMaterial); // Left physics wall
-  addWall(fieldRadius, 1, 0, 0, -Math.PI / 2, 0, wallMaterial); // Right physics wall
+  addWall(0, 1, -fieldRadius, 0, 0, 0, wallMaterial, game); // Back physics wall
+  addWall(0, 1, fieldRadius, 0, Math.PI, 0, wallMaterial, game); // Front physics wall
+  addWall(-fieldRadius, 1, 0, 0, Math.PI / 2, 0, wallMaterial, game); // Left physics wall
+  addWall(fieldRadius, 1, 0, 0, -Math.PI / 2, 0, wallMaterial, game); // Right physics wall
 
   console.log("Cannon.js physics world initialized on server.");
 }
-
-// Call initPhysics when this module is loaded (i.e., when the Nitro server starts)
-initPhysics();
 
 // --- SERVER ANIMATION LOOP (GLOBAL) ---
 /**
@@ -170,13 +169,13 @@ initPhysics();
  */
 function serverAnimate(game: Game) {
   const currentTime = Date.now();
-  const dt = (currentTime - lastTime) / 1000; // Time in seconds since last step
-  lastTime = currentTime;
+  const dt = (currentTime - game.dicePhysics.lastTime) / 1000; // Time in seconds since last step
+  game.dicePhysics.lastTime = currentTime;
 
-  world.step(1 / 60, dt, 3); // Advance the physics simulation
+  game.dicePhysics.world!.step(1 / 60, dt, 3); // Advance the physics simulation
 
   // Collect current state of dice to send to clients
-  const diceStates = diceBodies.map((body) => ({
+  const diceStates = game.dicePhysics.diceBodies.map((body) => ({
     position: { x: body.position.x, y: body.position.y, z: body.position.z },
     quaternion: {
       x: body.quaternion.x,
@@ -190,10 +189,11 @@ function serverAnimate(game: Game) {
   broadcastAnimation(game, diceStates);
 
   // Check if dice have settled on the server
-  if (serverRolling) {
+  if (game.dicePhysics.rolling) {
     let allStopped = true;
     for (let i = 0; i < numDice; i++) {
-      const body = diceBodies[i];
+      const body = game.dicePhysics.diceBodies[i];
+
       // Check if both linear and angular velocities are below a small threshold.
       if (
         body.velocity.length() > 0.05 ||
@@ -205,11 +205,13 @@ function serverAnimate(game: Game) {
     }
 
     if (allStopped) {
-      serverRolling = false;
+      game.dicePhysics.rolling = false;
+
       // Stop the animation loop as dice have settled
-      if (animationIntervalId) {
-        clearInterval(animationIntervalId);
-        animationIntervalId = null;
+      if (game.dicePhysics.intervalId) {
+        clearInterval(game.dicePhysics.intervalId);
+
+        game.dicePhysics.intervalId = null;
         console.log("Server animation loop stopped.");
       }
 
@@ -217,17 +219,12 @@ function serverAnimate(game: Game) {
       const results: number[] = [];
       let total = 0;
       for (let i = 0; i < numDice; i++) {
-        const value = determineDiceValue(diceBodies[i]);
+        const value = determineDiceValue(game.dicePhysics.diceBodies[i]);
         results.push(value);
         total += value;
       }
-      results.sort((a, b) => a - b); // Sort results for consistent display
-
-      // Emit final results to all clients
 
       onDiceFinished(game, results);
-
-      console.log(results);
 
       return results;
     }
@@ -235,18 +232,19 @@ function serverAnimate(game: Game) {
 }
 
 export function throwDice(game: Game) {
-  if (serverRolling) {
+  if (game.dicePhysics.rolling) {
     console.log(
       "Dice already rolling, ignoring new throw request from another user",
     );
     return; // Prevent new throw if dice are already in motion
   }
-  serverRolling = true;
+
+  game.dicePhysics.rolling = true;
   console.log("Throwing dice requested by a user");
 
   // Apply initial forces to each die in the shared physics world
   for (let i = 0; i < numDice; i++) {
-    const body = diceBodies[i];
+    const body = game.dicePhysics.diceBodies[i];
 
     // Calculate initial position within the field, slightly above ground
     const startX = (i - (numDice - 1) / 2) * diceSize * 1.5;
@@ -254,6 +252,7 @@ export function throwDice(game: Game) {
     const startZ = (Math.random() - 0.5) * fieldRadius * 0.5; // Random position around center depth
 
     body.position.set(startX, startY, startZ);
+
     // Give each die a random initial orientation
     body.quaternion
       .set(
@@ -284,9 +283,12 @@ export function throwDice(game: Game) {
 
   // Start the server's animation loop if it's not already running.
   // The loop will continuously update physics and broadcast states.
-  // We pass the `io` (Namespace) instance to `serverAnimate` so it can broadcast.
-  if (!animationIntervalId) {
-    animationIntervalId = setInterval(() => serverAnimate(game), 1000 / 60); // Run at 60 FPS
+  if (!game.dicePhysics.intervalId) {
+    game.dicePhysics.intervalId = setInterval(
+      () => serverAnimate(game),
+      1000 / 60,
+    ); // Run at 60 FPS
+
     console.log("Server animation loop started by throw request from a user");
   }
 }

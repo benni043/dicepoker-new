@@ -36,7 +36,6 @@ export function roll(game: Game, playerId: string) {
   // rs.dice = rollDice(rs.dice, rs.held);
 
   //todo holding dice
-  //todo instant update
   //todo roll multiple
   throwDice(game);
 
@@ -50,6 +49,8 @@ export function onDiceFinished(game: Game, dice: number[]) {
   if (rs.rollsLeft <= 0) throw new Error("no-rolls-left");
 
   rs.dice = dice;
+
+  broadcastGame(game);
 }
 
 export function hold(game: Game, playerId: string, held: boolean[]) {
