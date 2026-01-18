@@ -5,6 +5,7 @@ import {
   assertCurrentPlayer,
   assertCurrentTurn,
   assertGameNotFinished,
+  assertRolling,
 } from "./validation";
 import { broadcastGame } from "./wsManager";
 import { removeGame } from "~~/server/game/gameManager";
@@ -28,6 +29,7 @@ export function startTurn(game: Game) {
 export function roll(game: Game, playerId: string) {
   assertGameNotFinished(game);
   assertCurrentPlayer(game, playerId);
+  assertRolling(game);
 
   const rs = game.roundState!;
 
@@ -36,7 +38,6 @@ export function roll(game: Game, playerId: string) {
   // rs.dice = rollDice(rs.dice, rs.held);
 
   //todo holding dice
-  //todo roll multiple
   throwDice(game);
 
   rs.rollsLeft--;
@@ -46,7 +47,7 @@ export function onDiceFinished(game: Game, dice: number[]) {
   assertGameNotFinished(game);
 
   const rs = game.roundState!;
-  if (rs.rollsLeft <= 0) throw new Error("no-rolls-left");
+  if (rs.rollsLeft < 0) return;
 
   rs.dice = dice;
 

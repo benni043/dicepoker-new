@@ -16,3 +16,7 @@ export function assertGameNotStarted(game: Game) {
 export function assertGameNotFinished(game: Game) {
   if (game.status === "finished") throw new Error("game-already-finished");
 }
+
+export function assertRolling(game: Game) {
+  if (game.dicePhysics.rolling) throw new Error("dice-rolling");
+}
