@@ -448,8 +448,17 @@ function removeIdFromLocalStorage() {
         <button @click="score('sixes')" :disabled="!isMyTurn">
           Score (sixes)
         </button>
+        <button @click="score('fullHouse')" :disabled="!isMyTurn">
+          Score (fullHouse)
+        </button>
+        <button @click="score('street')" :disabled="!isMyTurn">
+          Score (street)
+        </button>
         <button @click="score('fourKind')" :disabled="!isMyTurn">
           Score (fourKind)
+        </button>
+        <button @click="score('fiveKind')" :disabled="!isMyTurn">
+          Score (fiveKind)
         </button>
       </div>
     </div>
