@@ -2,4 +2,4 @@ services:
   dicepoker:
     build: .
     ports:
-      - "3012:3000"
+      - "3024:3000"
