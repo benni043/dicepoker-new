@@ -41,7 +41,7 @@ export default defineWebSocketHandler({
           SM.hold(game, playerId, payload.held);
           break;
         case "score":
-          SM.score(game, playerId, payload.category);
+          SM.score(game, playerId, payload.category, payload.column);
           break;
       }
 

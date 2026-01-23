@@ -1,14 +1,14 @@
-import { Game, Player } from "./types";
+import { Game } from "./types";
 import { startGame } from "./stateMachine";
 import { nanoid } from "../utils/id";
 import { broadcastGame } from "./wsManager";
 import { assertGameNotStarted } from "~~/server/game/validation";
 import { initPhysics } from "~~/server/game/animate";
-import CANNON from "cannon-es";
+import type { Player, ScoreColumn, ScoreKey } from "#shared/utils/types";
 
 const games = new Map<string, Game>();
 
-export function createGame(playerCount: number): Game {
+export function createGame(playerCount: number, columns: number): Game {
   const game: Game = {
     id: nanoid(),
     status: "lobby",
@@ -25,6 +25,7 @@ export function createGame(playerCount: number): Game {
       lastTime: Date.now(),
       intervalId: null,
     },
+    columns: columns,
   };
 
   initPhysics(game);
@@ -44,6 +45,33 @@ export function getGame(id: string): Game {
   return g;
 }
 
+const SCORE_KEYS: ScoreKey[] = [
+  "ones",
+  "twos",
+  "threes",
+  "fours",
+  "fives",
+  "sixes",
+  "fullHouse",
+  "street",
+  "fourKind",
+  "fiveKind",
+];
+
+function createEmptyColumn(): ScoreColumn {
+  return SCORE_KEYS.map((k) => ({ key: k, value: null }));
+}
+
+function createEmptyColumnList(columns: number) {
+  const list = [];
+
+  for (let i = 0; i < columns; i++) {
+    list.push(createEmptyColumn());
+  }
+
+  return list;
+}
+
 export function addPlayer(game: Game, name: string): Player {
   assertGameNotStarted(game);
 
@@ -51,18 +79,7 @@ export function addPlayer(game: Game, name: string): Player {
     id: nanoid(),
     name,
     ready: false,
-    scorecard: {
-      ones: null,
-      twos: null,
-      threes: null,
-      fours: null,
-      fives: null,
-      sixes: null,
-      fullHouse: null,
-      street: null,
-      fourKind: null,
-      fiveKind: null,
-    },
+    scorecard: createEmptyColumnList(game.columns),
     sum: 0,
   };
 

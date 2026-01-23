@@ -1,22 +1,8 @@
 import CANNON from "cannon-es";
+import type { GameDTO, Player, RoundState } from "#shared/utils/types";
 
 export type GameStatus = "lobby" | "running" | "finished";
 export type StraightType = "small" | "big" | "both";
-
-export interface Player {
-  id: string;
-  name: string;
-  socketId?: string;
-  ready: boolean;
-  scorecard: Record<string, number | null>;
-  sum: number;
-}
-
-export interface RoundState {
-  rollsLeft: number;
-  dice: number[];
-  held: boolean[];
-}
 
 export interface Game {
   id: string;
@@ -28,17 +14,7 @@ export interface Game {
   roundState: RoundState | null;
   winner: Player | null;
   dicePhysics: DicePhysicsState;
-}
-
-export interface GameDTO {
-  id: string;
-  status: GameStatus;
-  players: Player[];
-  playerCount: number;
-  currentPlayerIndex: number;
-  round: number;
-  roundState: RoundState | null;
-  winner: Player | null;
+  columns: number;
 }
 
 export function toGameDTO(game: Game): GameDTO {

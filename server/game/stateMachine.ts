@@ -1,5 +1,4 @@
-import { Game, type Player } from "./types";
-import { rollDice } from "./dice";
+import { Game } from "./types";
 import { SCORERS } from "./scoring";
 import {
   assertCurrentPlayer,
@@ -11,6 +10,7 @@ import {
 import { broadcastGame } from "./wsManager";
 import { removeGame } from "~~/server/game/gameManager";
 import { throwDice } from "~~/server/game/animate";
+import type { Player, Scorecell, ScoreKey } from "#shared/utils/types";
 
 export function startGame(game: Game) {
   game.status = "running";
@@ -68,7 +68,12 @@ export function hold(game: Game, playerId: string, held: boolean[]) {
   game.roundState!.held = held;
 }
 
-export function score(game: Game, playerId: string, category: string) {
+export function score(
+  game: Game,
+  playerId: string,
+  category: ScoreKey,
+  columnIndex: number,
+) {
   assertGameNotFinished(game);
   assertCurrentPlayer(game, playerId);
   assertCurrentTurn(game);
@@ -78,9 +83,16 @@ export function score(game: Game, playerId: string, category: string) {
   if (!scorer) throw new Error("invalid-category");
 
   const player = game.players[game.currentPlayerIndex];
-  if (player.scorecard[category] !== null) throw new Error("already-used");
 
-  player.scorecard[category] = scorer(game.roundState!.dice, game.roundState!);
+  const column = player.scorecard[columnIndex];
+  if (!column) throw new Error("score-column-not-found");
+
+  const cell = column.find((c) => c.key === category);
+  if (!cell) throw new Error("score-key-not-found");
+  if (cell.value !== null) throw new Error("score-already-set");
+
+  cell.value = scorer(game.roundState!.dice, game.roundState!);
+
   player.sum = getTotalScore(player);
 
   if (checkGameOver(game)) {
@@ -104,7 +116,7 @@ function nextPlayer(game: Game) {
 
 function checkGameOver(game: Game) {
   const allFilled = game.players.every((p) =>
-    Object.values(p.scorecard).every((v) => v !== null),
+    p.scorecard.flat().every((c) => c.value !== null),
   );
 
   if (allFilled) game.status = "finished";
@@ -112,10 +124,9 @@ function checkGameOver(game: Game) {
 }
 
 export function getTotalScore(player: Player): number {
-  return Object.values(player.scorecard).reduce(
-    (sum, v) => (sum === null ? 0 : sum + (v ?? 0)),
-    0,
-  )!;
+  return player.scorecard
+    .flat()
+    .reduce((s: number, c: Scorecell) => s + (c.value ?? 0), 0);
 }
 
 export function calculateWinner(game: Game): Player | null {

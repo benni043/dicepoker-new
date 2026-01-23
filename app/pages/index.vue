@@ -241,7 +241,7 @@ const isMyTurn = computed(() => {
 async function createGame() {
   const game = await $fetch("/api/games", {
     method: "POST",
-    body: { playerCount: 2 },
+    body: { playerCount: 2, columns: 2 },
   });
 
   gameId.value = game.id;
@@ -365,13 +365,13 @@ function hold(i: number) {
   );
 }
 
-function score(type: string) {
+function score(type: string, column: number) {
   send(
     JSON.stringify({
       gameId: gameId.value,
       playerId: playerId.value,
       action: "score",
-      payload: { category: type },
+      payload: { category: type, column: column },
     }),
   );
 }
@@ -430,35 +430,38 @@ function removeIdFromLocalStorage() {
 
         <button @click="roll" :disabled="!isMyTurn">Roll</button>
 
-        <button @click="score('ones')" :disabled="!isMyTurn">
-          Score (ones)
+        <button @click="score('ones', 0)" :disabled="!isMyTurn">
+          Score (col0) (ones)
         </button>
-        <button @click="score('twos')" :disabled="!isMyTurn">
-          Score (twos)
+        <button @click="score('ones', 1)" :disabled="!isMyTurn">
+          Score (col1) (ones)
         </button>
-        <button @click="score('threes')" :disabled="!isMyTurn">
-          Score (threes)
+        <button @click="score('twos', 0)" :disabled="!isMyTurn">
+          Score (col0) (twos)
         </button>
-        <button @click="score('fours')" :disabled="!isMyTurn">
-          Score (fours)
+        <button @click="score('threes', 0)" :disabled="!isMyTurn">
+          Score (col0) (threes)
         </button>
-        <button @click="score('fives')" :disabled="!isMyTurn">
-          Score (fives)
+        <button @click="score('fours', 0)" :disabled="!isMyTurn">
+          Score (col0) (fours)
         </button>
-        <button @click="score('sixes')" :disabled="!isMyTurn">
-          Score (sixes)
+        <button @click="score('fives', 0)" :disabled="!isMyTurn">
+          Score (col0) (fives)
         </button>
-        <button @click="score('fullHouse')" :disabled="!isMyTurn">
-          Score (fullHouse)
+        <button @click="score('sixes', 0)" :disabled="!isMyTurn">
+          Score (col0) (sixes)
         </button>
-        <button @click="score('street')" :disabled="!isMyTurn">
-          Score (street)
+        <button @click="score('fullHouse', 0)" :disabled="!isMyTurn">
+          Score (col0) (fullHouse)
         </button>
-        <button @click="score('fourKind')" :disabled="!isMyTurn">
-          Score (fourKind)
+        <button @click="score('street', 0)" :disabled="!isMyTurn">
+          Score (col0) (street)
         </button>
-        <button @click="score('fiveKind')" :disabled="!isMyTurn">
-          Score (fiveKind)
+        <button @click="score('fourKind', 0)" :disabled="!isMyTurn">
+          Score (col0) (fourKind)
+        </button>
+        <button @click="score('fiveKind', 0)" :disabled="!isMyTurn">
+          Score (col0) (fiveKind)
         </button>
       </div>
     </div>

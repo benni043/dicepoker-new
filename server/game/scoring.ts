@@ -1,4 +1,5 @@
-import type { RoundState, StraightType } from "~~/server/game/types";
+import type { StraightType } from "~~/server/game/types";
+import type { RoundState } from "#shared/utils/types";
 
 const scoreOnes = (d: number[]) => scoreNumber(d, 1);
 const scoreTwos = (d: number[]) => scoreNumber(d, 2);
