@@ -1,5 +1,5 @@
 import { Game } from "./types";
-import { SCORERS } from "./scoring";
+import { SCORERS } from "#shared/utils/scoring";
 import {
   assertCurrentPlayer,
   assertCurrentTurn,
