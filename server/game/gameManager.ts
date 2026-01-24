@@ -5,6 +5,7 @@ import { broadcastGame } from "./wsManager";
 import { assertGameNotStarted } from "~~/server/game/validation";
 import { initPhysics } from "~~/server/game/animate";
 import type { Player, ScoreColumn, ScoreKey } from "#shared/utils/types";
+import { SCORE_KEYS } from "#shared/utils/scoring";
 
 const games = new Map<string, Game>();
 
@@ -44,19 +45,6 @@ export function getGame(id: string): Game {
   if (!g) throw new Error("game-not-found");
   return g;
 }
-
-const SCORE_KEYS: ScoreKey[] = [
-  "ones",
-  "twos",
-  "threes",
-  "fours",
-  "fives",
-  "sixes",
-  "fullHouse",
-  "street",
-  "fourKind",
-  "fiveKind",
-];
 
 function createEmptyColumn(): ScoreColumn {
   return SCORE_KEYS.map((k) => ({ key: k, value: null }));

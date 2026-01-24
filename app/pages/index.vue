@@ -447,40 +447,6 @@ function onSelectScore(payload: {
           :active-player-id="game.players[game.currentPlayerIndex].id"
           @select="onSelectScore"
         />
-
-        <!--        <button @click="score('ones', 0)" :disabled="!isMyTurn">-->
-        <!--          Score (col0) (ones)-->
-        <!--        </button>-->
-        <!--        <button @click="score('ones', 1)" :disabled="!isMyTurn">-->
-        <!--          Score (col1) (ones)-->
-        <!--        </button>-->
-        <!--        <button @click="score('twos', 0)" :disabled="!isMyTurn">-->
-        <!--          Score (col0) (twos)-->
-        <!--        </button>-->
-        <!--        <button @click="score('threes', 0)" :disabled="!isMyTurn">-->
-        <!--          Score (col0) (threes)-->
-        <!--        </button>-->
-        <!--        <button @click="score('fours', 0)" :disabled="!isMyTurn">-->
-        <!--          Score (col0) (fours)-->
-        <!--        </button>-->
-        <!--        <button @click="score('fives', 0)" :disabled="!isMyTurn">-->
-        <!--          Score (col0) (fives)-->
-        <!--        </button>-->
-        <!--        <button @click="score('sixes', 0)" :disabled="!isMyTurn">-->
-        <!--          Score (col0) (sixes)-->
-        <!--        </button>-->
-        <!--        <button @click="score('fullHouse', 0)" :disabled="!isMyTurn">-->
-        <!--          Score (col0) (fullHouse)-->
-        <!--        </button>-->
-        <!--        <button @click="score('street', 0)" :disabled="!isMyTurn">-->
-        <!--          Score (col0) (street)-->
-        <!--        </button>-->
-        <!--        <button @click="score('fourKind', 0)" :disabled="!isMyTurn">-->
-        <!--          Score (col0) (fourKind)-->
-        <!--        </button>-->
-        <!--        <button @click="score('fiveKind', 0)" :disabled="!isMyTurn">-->
-        <!--          Score (col0) (fiveKind)-->
-        <!--        </button>-->
       </div>
     </div>
 

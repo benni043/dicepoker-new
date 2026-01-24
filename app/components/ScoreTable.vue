@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { SCORE_KEYS } from "#shared/utils/scoring";
+
 const props = defineProps<{
   players: Player[];
   roundState: RoundState;
@@ -15,19 +17,6 @@ const emit = defineEmits<{
     },
   ): void;
 }>();
-
-const SCORE_KEYS: ScoreKey[] = [
-  "ones",
-  "twos",
-  "threes",
-  "fours",
-  "fives",
-  "sixes",
-  "fullHouse",
-  "street",
-  "fourKind",
-  "fiveKind",
-];
 
 function isActivePlayer(player: Player): boolean {
   return player.id === props.activePlayerId;
@@ -49,13 +38,10 @@ function getDisplayValue(
   const cell = getCell(player, columnIndex, key);
   if (!cell) return "";
 
-  // Bereits gesetzt → fixer Wert
   if (cell.value !== null) return cell.value;
 
-  // Nicht aktiver Spieler → leer lassen
   if (!isActivePlayer(player)) return "";
 
-  // Aktiver Spieler → möglicher Score
   const scorer = SCORERS[key];
   return scorer ? scorer(props.roundState.dice, props.roundState) : "";
 }
@@ -69,9 +55,7 @@ function isClickable(
   if (!cell) return false;
   if (cell.value !== null) return false;
   if (!isActivePlayer(player)) return false;
-  if (props.roundState.rollsLeft === 3) return false; // noch kein Wurf
-
-  return true;
+  return props.roundState.rollsLeft !== 3;
 }
 
 function onClickCell(player: Player, columnIndex: number, key: ScoreKey) {

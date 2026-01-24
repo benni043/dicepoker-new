@@ -10,6 +10,7 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.1.18",
     "@types/three": "^0.182.0",
     "@vueuse/nuxt": "^14.1.0",
     "cannon-es": "^0.20.0",

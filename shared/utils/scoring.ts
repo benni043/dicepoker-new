@@ -1,5 +1,5 @@
 import type { StraightType } from "~~/server/game/types";
-import type { RoundState } from "#shared/utils/types";
+import type { RoundState, ScoreKey } from "#shared/utils/types";
 
 const scoreOnes = (d: number[]) => scoreNumber(d, 1);
 const scoreTwos = (d: number[]) => scoreNumber(d, 2);
@@ -23,6 +23,19 @@ export const SCORERS: Record<
   fourKind: scoreFourOfKind,
   fiveKind: scoreFiveOfKind,
 };
+
+export const SCORE_KEYS: ScoreKey[] = [
+  "ones",
+  "twos",
+  "threes",
+  "fours",
+  "fives",
+  "sixes",
+  "fullHouse",
+  "street",
+  "fourKind",
+  "fiveKind",
+];
 
 function countDice(dice: number[]): Record<number, number> {
   return dice.reduce(
