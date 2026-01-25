@@ -4,99 +4,25 @@ import ScoreTable from "~/components/game/ScoreTable.vue";
 import type { ScoreKey } from "#shared/utils/types";
 import DiceCanvas from "~/components/game/DiceCanvas.vue";
 
-const gameId = ref<string | null>(null);
-const playerId = ref<string | null>(null);
-const name = ref("player");
-
-function roll() {
-  send(
-    JSON.stringify({
-      gameId: gameId.value,
-      playerId: playerId.value,
-      action: "roll",
-    }),
-  );
-}
-
 const { status, data, send, open, close } = useWebSocket(`/ws/game`);
-const game = ref<any>(null);
-
-const games = ref<{ id: string; status: string; players: string[] }[]>([]);
+const gameComposable = useGame();
 
 const isMyTurn = computed(() => {
-  if (!game.value || !playerId.value) return false;
+  if (!gameComposable.game || !gameComposable.playerId.value) return false;
   return (
-    game.value.players[game.value.currentPlayerIndex]?.id === playerId.value
+    gameComposable.game.value!.players[
+      gameComposable.game.value!.currentPlayerIndex
+    ]?.id === gameComposable.playerId.value
   );
 });
-
-async function createGame() {
-  const game = await $fetch("/api/games", {
-    method: "POST",
-    body: { playerCount: 2, columns: 2 },
-  });
-
-  gameId.value = game.id;
-}
-
-async function joinGame() {
-  if (!gameId.value) return;
-
-  try {
-    const localStorageId = localStorage.getItem("playerId");
-
-    if (localStorageId) {
-      await $fetch(`/api/games/${gameId.value}/rejoin`, {
-        method: "POST",
-        body: { playerId: localStorageId },
-      });
-
-      playerId.value = localStorageId;
-
-      connectWS();
-
-      return;
-    }
-
-    const player = await $fetch(`/api/games/${gameId.value}/join`, {
-      method: "POST",
-      body: { name: name.value },
-    });
-
-    playerId.value = player.id;
-    localStorage.setItem("playerId", player.id);
-  } catch (e: any) {
-    alert(e.data?.message ?? "Unbekannter Fehler");
-  }
-}
-
-async function loadGames() {
-  games.value =
-    await $fetch<{ id: string; status: string; players: string[] }[]>(
-      "/api/games",
-    );
-}
-
-async function readyUp() {
-  try {
-    await $fetch(`/api/games/${gameId.value}/ready`, {
-      method: "POST",
-      body: { playerId: playerId.value },
-    });
-
-    connectWS();
-  } catch (e: any) {
-    alert(e.data?.message ?? "Unbekannter Fehler");
-  }
-}
 
 const diceCanvas = ref<InstanceType<typeof DiceCanvas> | null>(null);
 
 function connectWS() {
   send(
     JSON.stringify({
-      gameId: gameId.value,
-      playerId: playerId.value,
+      gameId: gameComposable.gameId.value,
+      playerId: gameComposable.playerId.value,
       action: "init",
     }),
   );
@@ -105,13 +31,13 @@ function connectWS() {
     const msg = JSON.parse(newValue);
 
     if (msg.type === "state") {
-      game.value = msg.gameDTO;
+      gameComposable.game.value = msg.gameDTO;
 
-      if (game.value.status === "finished") {
-        removeIdFromLocalStorage();
+      if (gameComposable.game.value!.status === "finished") {
+        gameComposable.clearPlayer();
       }
 
-      console.log(game.value);
+      console.log(gameComposable.game.value);
     }
 
     if (msg.type === "diceStateUpdate") {
@@ -123,12 +49,12 @@ function connectWS() {
 }
 
 function hold(i: number) {
-  const held = [...game.value.roundState.held];
+  const held = [...gameComposable.game.value!.roundState!.held];
   held[i] = !held[i];
   send(
     JSON.stringify({
-      gameId: gameId.value,
-      playerId: playerId.value,
+      gameId: gameComposable.gameId.value,
+      playerId: gameComposable.playerId.value,
       action: "hold",
       payload: { held },
     }),
@@ -138,16 +64,22 @@ function hold(i: number) {
 function score(type: string, column: number) {
   send(
     JSON.stringify({
-      gameId: gameId.value,
-      playerId: playerId.value,
+      gameId: gameComposable.gameId.value,
+      playerId: gameComposable.playerId.value,
       action: "score",
       payload: { category: type, column: column },
     }),
   );
 }
 
-function removeIdFromLocalStorage() {
-  localStorage.removeItem("playerId");
+function roll() {
+  send(
+    JSON.stringify({
+      gameId: gameComposable.gameId.value,
+      playerId: gameComposable.playerId.value,
+      action: "roll",
+    }),
+  );
 }
 
 function onSelectScore(payload: {
@@ -155,7 +87,7 @@ function onSelectScore(payload: {
   columnIndex: number;
   key: ScoreKey;
 }) {
-  if (payload.playerId !== playerId.value) return;
+  if (payload.playerId !== gameComposable.playerId.value) return;
   score(payload.key, payload.columnIndex);
 }
 </script>
@@ -164,55 +96,76 @@ function onSelectScore(payload: {
   <div>
     <h1>Würfelpoker Test</h1>
 
-    <button @click="removeIdFromLocalStorage()">remove id from storage</button>
+    <button @click="gameComposable.clearPlayer()">
+      remove id from storage
+    </button>
 
     <div>
-      <button @click="loadGames">Spiele laden</button>
+      <button @click="gameComposable.loadGames">Spiele laden</button>
 
-      <div v-for="g in games" :key="g.id">
+      <div v-for="g in gameComposable.games.value" :key="g.id">
         <span>{{ g.id }} ({{ g.players.length }} Spieler)</span>
-        <button @click="gameId = g.id">Beitreten</button>
+        <button @click="gameComposable.gameId.value = g.id">Beitreten</button>
       </div>
     </div>
 
-    <div v-if="!gameId">
-      <button @click="createGame">Game erstellen</button>
+    <div v-if="!gameComposable.gameId">
+      <button @click="gameComposable.createGame">Game erstellen</button>
     </div>
 
-    <div v-else-if="!playerId">
-      <input v-model="name" />
-      <button @click="joinGame">Beitreten</button>
+    <div v-else-if="!gameComposable.playerId">
+      <input v-model="gameComposable.name" />
+      <button @click="gameComposable.joinGame">Beitreten</button>
     </div>
 
-    <div v-else-if="!game || game.status === 'lobby'">
-      <button @click="readyUp">Ready</button>
+    <div
+      v-else-if="
+        !gameComposable.game || gameComposable.game.value!.status === 'lobby'
+      "
+    >
+      <button @click="gameComposable.readyUp">Ready</button>
     </div>
 
     <div v-else>
-      <h3>Spiel {{ game.id }}</h3>
-      <p>Am Zug: {{ game.players[game.currentPlayerIndex].name }}</p>
+      <h3>Spiel {{ gameComposable.game.value!.id }}</h3>
+      <p>
+        Am Zug:
+        {{
+          gameComposable.game.value!.players[
+            gameComposable.game.value!.currentPlayerIndex
+          ]!.name
+        }}
+      </p>
 
-      <div v-if="game.roundState">
+      <div v-if="gameComposable.game.value!.roundState">
         <div>
           <span
-            v-for="(d, i) in game.roundState.dice"
+            v-for="(d, i) in gameComposable.game.value!.roundState.dice"
             :key="i"
             style="cursor: pointer; margin: 5px"
             @click="isMyTurn && hold(i)"
           >
             {{ d }}
-            <span v-if="game.roundState.held[i]">[H]</span>
+            <span v-if="gameComposable.game.value!.roundState.held[i]"
+              >[H]</span
+            >
           </span>
         </div>
 
-        <p>Würfe übrig: {{ game.roundState.rollsLeft }}</p>
+        <p>
+          Würfe übrig: {{ gameComposable.game.value!.roundState.rollsLeft }}
+        </p>
 
         <button @click="roll" :disabled="!isMyTurn">Roll</button>
 
         <ScoreTable
-          :players="game.players"
-          :round-state="game.roundState"
-          :active-player-id="game.players[game.currentPlayerIndex].id"
+          :players="gameComposable.game.value!.players"
+          :round-state="gameComposable.game.value!.roundState"
+          :active-player-id="
+            gameComposable.game.value!.players[
+              gameComposable.game.value!.currentPlayerIndex
+            ]!.id
+          "
           @select="onSelectScore"
         />
       </div>
