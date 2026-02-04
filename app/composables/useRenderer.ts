@@ -1,220 +1,283 @@
 import * as THREE from "three";
+import * as CANNON from "cannon-es";
+import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { Mulberry32 } from "#shared/utils/render";
 
 export function useDiceRenderer() {
-  let scene: THREE.Scene;
-  let camera: THREE.PerspectiveCamera;
-  let renderer: THREE.WebGLRenderer;
-  const diceMeshes: THREE.Mesh[] = [];
+  let scene!: THREE.Scene;
+  let camera!: THREE.PerspectiveCamera;
+  let renderer!: THREE.WebGLRenderer;
+  let physicsWorld!: CANNON.World;
+  let diceMesh!: THREE.Group;
 
-  const numDice = 5;
-  const fieldRadius = 2.5;
-  const diceSize = 0.5;
+  const params = {
+    width: 600,
+    height: 400,
+    numberOfDice: 5,
+    diceSize: 2,
+    segments: 40,
+    edgeRadius: 0.14,
+    notchRadius: 0.18,
+    notchDepth: 0.2,
+  };
 
-  /**
-   * Creates an array of MeshStandardMaterial, one for each face of a die (1-6).
-   * Each material has a CanvasTexture with the appropriate number of dots.
-   */
-  function createDiceMaterial(): THREE.MeshStandardMaterial[] {
-    const materials = [];
-    const size = 512; // DiceCanvas resolution for the dot textures
-    const radius = 40; // Radius of each dot on the die face
+  const diceArray: {
+    mesh: THREE.Group;
+    body: CANNON.Body;
+  }[] = [];
 
-    // Pre-calculated pixel positions for dots on the DiceCanvas
-    const positions = {
-      center: [size / 2, size / 2],
-      topLeft: [size / 4, size / 4],
-      topRight: [(3 * size) / 4, size / 4],
-      middleLeft: [size / 4, size / 2],
-      middleRight: [(3 * size) / 4, size / 2],
-      bottomLeft: [size / 4, (3 * size) / 4],
-      bottomRight: [(3 * size) / 4, (3 * size) / 4],
-    };
-
-    // Maps the index of the materials array (which corresponds to a specific face of
-    // THREE.BoxGeometry: +X, -X, +Y, -Y, +Z, -Z) to the dot pattern for the
-    // correct die face number.
-    // The order is:
-    // 0: +X (Right) -> Should show Face 3
-    // 1: -X (Left)  -> Should show Face 4
-    // 2: +Y (Top)   -> Should show Face 1
-    // 3: -Y (Bottom)-> Should show Face 6
-    // 4: +Z (Front) -> Should show Face 2
-    // 5: -Z (Back)  -> Should show Face 5
-    const dotsMap = [
-      // Face 3 (+X)
-      [positions.topLeft, positions.center, positions.bottomRight],
-      // Face 4 (-X)
-      [
-        positions.topLeft,
-        positions.topRight,
-        positions.bottomLeft,
-        positions.bottomRight,
-      ],
-      // Face 1 (+Y)
-      [positions.center],
-      // Face 6 (-Y)
-      [
-        positions.topLeft,
-        positions.topRight,
-        positions.middleLeft,
-        positions.middleRight,
-        positions.bottomLeft,
-        positions.bottomRight,
-      ],
-      // Face 2 (+Z)
-      [positions.topLeft, positions.bottomRight],
-      // Face 5 (-Z)
-      [
-        positions.topLeft,
-        positions.topRight,
-        positions.center,
-        positions.bottomLeft,
-        positions.bottomRight,
-      ],
-    ];
-
-    // Generate a DiceCanvas texture for each of the six faces
-    for (let i = 0; i < 6; i++) {
-      const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext("2d");
-
-      // Fill the background of the face with white
-      ctx!.fillStyle = "white";
-      ctx!.fillRect(0, 0, size, size);
-
-      // Draw black dots according to the current face's pattern
-      ctx!.fillStyle = "black";
-      const dots = dotsMap[i];
-
-      dots!.forEach(([x, y]) => {
-        ctx!.beginPath();
-        ctx!.arc(x!, y!, radius, 0, 2 * Math.PI);
-        ctx!.fill();
-      });
-
-      // Create a Three.js texture from the DiceCanvas and set filtering
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-
-      // Create and store the material for this face
-      materials.push(new THREE.MeshStandardMaterial({ map: texture }));
-    }
-
-    return materials;
-  }
-
-  /**
-   * Initializes the Three.js scene, camera, renderer, and visual elements.
-   * No Cannon.js physics here as it's handled by the backend.
-   */
-  function init(canvas: HTMLCanvasElement) {
-    // --- Three.js Setup ---
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x228b22); // Green table background
-
-    camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-    camera.position.set(0, 5, 3); // Position camera above the field
-    camera.lookAt(0, 0, 0); // Point camera towards the center of the field
+  function initScene(canvas: HTMLCanvasElement) {
+    initPhysics();
 
     renderer = new THREE.WebGLRenderer({
-      canvas: canvas,
+      alpha: true,
       antialias: true,
+      canvas,
     });
-    renderer.setSize(500, 500); // Fixed size for the display DiceCanvas
-    renderer.setPixelRatio(window.devicePixelRatio); // For better quality on high-res screens
 
-    // --- Lighting ---
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(5, 10, 5).normalize(); // Light from top-right-front
-    scene.add(light);
+    renderer.shadowMap.enabled = true;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Soft ambient light
-    scene.add(ambientLight);
+    scene = new THREE.Scene();
 
-    // --- Create Dice (Visual Only) ---
-    const diceMaterials = createDiceMaterial(); // Get the pre-generated face materials
+    camera = new THREE.PerspectiveCamera(
+      45,
+      params.width / params.height,
+      0.1,
+      500,
+    );
 
-    for (let i = 0; i < numDice; i++) {
-      // Create Three.js mesh for visual representation
-      const geometry = new THREE.BoxGeometry(diceSize, diceSize, diceSize); // Size of the die
-      const mesh = new THREE.Mesh(geometry, diceMaterials);
-      // Set initial position - these will be updated by server data
-      mesh.position.set(
-        (i - (numDice - 1) / 2) * diceSize * 1.5,
-        diceSize / 2,
-        fieldRadius - diceSize * 1.5,
-      );
-      scene.add(mesh);
-      diceMeshes.push(mesh);
+    camera.position.set(0, 20, 20);
+    camera.lookAt(0, 0, 0);
+
+    updateSceneSize();
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+    const topLight = new THREE.PointLight(0xffffff, 0.5);
+    topLight.position.set(-20, 30, 0);
+    topLight.castShadow = true;
+    topLight.shadow.mapSize.set(2048, 2048);
+    scene.add(topLight);
+
+    createFloor();
+    diceMesh = createDiceMesh();
+
+    for (let i = 0; i < params.numberOfDice; i++) {
+      diceArray.push(createDice());
     }
 
-    // --- Add Visual Walls (to match backend's physics boundaries) ---
-    addVisualWall(0, 0.5, -fieldRadius, 0); // Back visual wall
-    addVisualWall(0, 0.5, fieldRadius, Math.PI); // Front visual wall
-    addVisualWall(-fieldRadius, 0.5, 0, Math.PI / 2); // Left visual wall
-    addVisualWall(fieldRadius, 0.5, 0, -Math.PI / 2); // Right visual wall
-
-    animate(); // Start the rendering loop
+    render();
   }
 
-  /**
-   * Adds a visible wall mesh to the Three.js scene.
-   * @param {number} x X position of the visual wall.
-   * @param {number} y Y position of the visual wall.
-   * @param {number} z Z position of the visual wall.
-   * @param {number} rotY Y rotation (Euler angle) of the visual wall.
-   */
-  function addVisualWall(x: number, y: number, z: number, rotY: number) {
-    const wallLength = fieldRadius * 2; // Length of the wall
-    const wallHeight = 1; // Height of the wall
-    const wallThickness = 0.1; // Thickness of the wall
+  function updateSceneSize() {
+    camera.aspect = params.width / params.height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(params.width, params.height);
+  }
 
-    const geometry = new THREE.BoxGeometry(
-      wallLength,
-      wallHeight,
-      wallThickness,
+  function initPhysics() {
+    physicsWorld = new CANNON.World({
+      allowSleep: true,
+      gravity: new CANNON.Vec3(0, -65, 0),
+    });
+
+    physicsWorld.defaultContactMaterial.restitution = 0.3;
+  }
+
+  function createFloor() {
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(1000, 1000),
+      new THREE.ShadowMaterial({ opacity: 0.1 }),
     );
-    const material = new THREE.MeshStandardMaterial({ color: 0x654321 }); // Brown color
-    const mesh = new THREE.Mesh(geometry, material);
 
-    mesh.position.set(x, y, z);
-    mesh.rotation.y = rotY; // Rotate to align with the physics walls
+    floor.receiveShadow = true;
+    floor.position.y = -7;
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
 
+    const floorBody = new CANNON.Body({
+      type: CANNON.Body.STATIC,
+      shape: new CANNON.Plane(),
+    });
+
+    floorBody.position.copy(floor.position as unknown as CANNON.Vec3);
+    floorBody.quaternion.copy(floor.quaternion as unknown as CANNON.Quaternion);
+
+    physicsWorld.addBody(floorBody);
+  }
+
+  function createDiceMesh() {
+    const outerMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+    const innerMat = new THREE.MeshStandardMaterial({
+      color: 0x000000,
+      roughness: 0,
+      metalness: 1,
+      side: THREE.DoubleSide,
+    });
+
+    const group = new THREE.Group();
+    group.add(new THREE.Mesh(createInnerGeometry(), innerMat));
+    group.add(new THREE.Mesh(createBoxGeometry(), outerMat));
+
+    return group;
+  }
+
+  function createDice() {
+    const mesh = diceMesh.clone();
     scene.add(mesh);
-  }
 
-  function animate() {
-    requestAnimationFrame(animate); // Request the next frame for continuous animation
-    renderer.render(scene, camera); // Render the current state of the scene
-  }
-
-  function dispose() {
-    renderer.dispose();
-  }
-
-  function updateDiceStates(states: any[]) {
-    diceMeshes.forEach((mesh, i) => {
-      mesh.visible = i < states.length;
+    const body = new CANNON.Body({
+      mass: 1,
+      shape: new CANNON.Box(
+        new CANNON.Vec3(
+          params.diceSize / 2,
+          params.diceSize / 2,
+          params.diceSize / 2,
+        ),
+      ),
+      sleepTimeLimit: 0.1,
     });
 
-    states.forEach((state, i) => {
-      const mesh = diceMeshes[i];
-      mesh!.position.set(state.position.x, state.position.y, state.position.z);
-      mesh!.quaternion.set(
-        state.quaternion.x,
-        state.quaternion.y,
-        state.quaternion.z,
-        state.quaternion.w,
+    physicsWorld.addBody(body);
+
+    return { mesh, body };
+  }
+
+  function createBoxGeometry() {
+    let boxGeometry: THREE.BufferGeometry = new THREE.BoxGeometry(
+      params.diceSize,
+      params.diceSize,
+      params.diceSize,
+      params.segments,
+      params.segments,
+      params.segments,
+    );
+
+    const posAttr = boxGeometry.attributes.position as THREE.BufferAttribute;
+    const subCubeHalf = params.diceSize / 2 - params.edgeRadius;
+
+    const notchWave = (v: number) => {
+      v = (1 / params.notchRadius) * v;
+      v = Math.PI * Math.max(-1, Math.min(1, v));
+      return params.notchDepth * (Math.cos(v) + 1);
+    };
+
+    const notch = (pos: number[]) => notchWave(pos[0]!) * notchWave(pos[1]!);
+
+    const offset = 0.23 * params.diceSize;
+
+    for (let i = 0; i < posAttr.count; i++) {
+      let position = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+
+      const subCube = new THREE.Vector3(
+        Math.sign(position.x),
+        Math.sign(position.y),
+        Math.sign(position.z),
+      ).multiplyScalar(subCubeHalf);
+
+      const addition = new THREE.Vector3().subVectors(position, subCube);
+
+      if (
+        Math.abs(position.x) > subCubeHalf &&
+        Math.abs(position.y) > subCubeHalf &&
+        Math.abs(position.z) > subCubeHalf
+      ) {
+        addition.normalize().multiplyScalar(params.edgeRadius);
+        position = subCube.add(addition);
+      }
+
+      // Notches
+      const half = params.diceSize / 2;
+
+      if (position.y === half) {
+        position.y -= notch([position.x, position.z]);
+      } else if (position.x === half) {
+        position.x -= notch([position.y + offset, position.z + offset]);
+      } else if (position.z === half) {
+        position.z -= notch([position.x, position.y]);
+      }
+
+      posAttr.setXYZ(i, position.x, position.y, position.z);
+    }
+
+    boxGeometry.deleteAttribute("normal");
+    boxGeometry.deleteAttribute("uv");
+
+    boxGeometry = BufferGeometryUtils.mergeVertices(boxGeometry);
+    boxGeometry.computeVertexNormals();
+
+    return boxGeometry;
+  }
+
+  function createInnerGeometry() {
+    const base = new THREE.PlaneGeometry(
+      params.diceSize - 2 * params.edgeRadius,
+      params.diceSize - 2 * params.edgeRadius,
+    );
+
+    const offset = params.diceSize / 2 - 0.02;
+
+    const geometries = [
+      base.clone().translate(0, 0, offset),
+      base.clone().translate(0, 0, -offset),
+      base
+        .clone()
+        .rotateX(Math.PI / 2)
+        .translate(0, offset, 0),
+      base
+        .clone()
+        .rotateX(Math.PI / 2)
+        .translate(0, -offset, 0),
+      base
+        .clone()
+        .rotateY(Math.PI / 2)
+        .translate(offset, 0, 0),
+      base
+        .clone()
+        .rotateY(Math.PI / 2)
+        .translate(-offset, 0, 0),
+    ];
+
+    return BufferGeometryUtils.mergeGeometries(geometries, false)!;
+  }
+
+  function render() {
+    physicsWorld.step(1 / 60);
+
+    for (const dice of diceArray) {
+      dice.mesh.position.copy(dice.body.position as unknown as THREE.Vector3);
+      dice.mesh.quaternion.copy(
+        dice.body.quaternion as unknown as THREE.Quaternion,
       );
+    }
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(render);
+  }
+
+  function throwDice(seed: number) {
+    const rng = Mulberry32(seed);
+
+    diceArray.forEach((d, i) => {
+      d.body.velocity.setZero();
+      d.body.angularVelocity.setZero();
+
+      d.body.position.set(6, i * (params.diceSize * 1.5), 0);
+
+      d.mesh.rotation.set(2 * Math.PI * rng(), 0, 2 * Math.PI * rng());
+
+      d.body.quaternion.copy(d.mesh.quaternion as unknown as CANNON.Quaternion);
+
+      const force = 3 + 5 * rng();
+      d.body.applyImpulse(
+        new CANNON.Vec3(-force, force, 0),
+        new CANNON.Vec3(0, 0, 0.2),
+      );
+
+      d.body.allowSleep = true;
     });
   }
 
-  return {
-    init,
-    updateDiceStates,
-    dispose,
-  };
+  return { initScene, throwDice };
 }

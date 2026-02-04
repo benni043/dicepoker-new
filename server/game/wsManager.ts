@@ -33,6 +33,8 @@ export function broadcastAnimation(
     const peer = peers.get(player.id);
     if (!peer) continue;
 
-    peer.send(JSON.stringify({ type: "diceStateUpdate", diceStates }));
+    const renderInformation = { renderInformation: 12344 };
+
+    peer.send(JSON.stringify({ type: "renderInformation", renderInformation }));
   }
 }

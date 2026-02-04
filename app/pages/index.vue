@@ -40,8 +40,8 @@ function connectWS() {
       console.log(gameComposable.game.value);
     }
 
-    if (msg.type === "diceStateUpdate") {
-      diceCanvas.value?.updateDiceStates(msg.diceStates);
+    if (msg.type === "renderInformation") {
+      diceCanvas.value?.throwDice(msg.renderInformation);
     }
 
     if (msg.type === "error") alert(msg.message);

@@ -6,15 +6,15 @@ const canvas = ref<HTMLCanvasElement | null>(null);
 const renderer = useDiceRenderer();
 
 defineExpose({
-  updateDiceStates: renderer.updateDiceStates,
+  throwDice,
 });
+
+function throwDice(seed: number) {
+  renderer.throwDice(seed);
+}
 
 onMounted(() => {
-  renderer.init(canvas.value!);
-});
-
-onBeforeUnmount(() => {
-  renderer.dispose();
+  renderer.initScene(canvas.value!);
 });
 </script>
 
