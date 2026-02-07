@@ -34,32 +34,38 @@ export function roll(game: Game, playerId: string) {
 
   const rs = game.roundState!;
 
-  const result = simulateDiceRoll(2, rs.dice.length - rs.held.length);
+  const toHold: number[] = [];
+
+  rs.held.forEach((idx) => {
+    toHold.push(rs.dice[idx]);
+  });
+
+  const simulateDiceRollResult = simulateDiceRoll(
+    2,
+    rs.dice.length - rs.held.length,
+  );
 
   rs.dice = [];
 
-  for (let elem in rs.held) {
-    for (let res in result.dice) {
-      if (res === elem) {
-        rs.dice.push(elem);
-      }
-    }
-  }
+  rs.dice.push(...simulateDiceRollResult.dice);
+  rs.dice.push(...toHold);
 
-  rs.dice.push(...result.dice);
-  rs.seed = result.seed;
+  rs.seed = simulateDiceRollResult.seed;
   rs.rollsLeft--;
 
   broadcastAnimation(game);
 }
 
-export function hold(game: Game, playerId: string, held: number[]) {
+export function hold(game: Game, playerId: string, index: number) {
   assertGameNotFinished(game);
   assertCurrentPlayer(game, playerId);
   assertCurrentTurn(game);
   assertRolesLeft(game);
 
-  game.roundState!.held = held;
+  const rs = game.roundState!;
+
+  if (rs.held.includes(index)) rs.held = rs.held.filter((x) => x !== index);
+  else rs.held.push(index);
 }
 
 export function score(

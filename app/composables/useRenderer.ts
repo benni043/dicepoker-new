@@ -52,9 +52,9 @@ export function useDiceRenderer() {
 
     updateSceneSize();
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    scene.add(new THREE.AmbientLight(0xffffff, 1.5));
 
-    const topLight = new THREE.PointLight(0xffffff, 0.5);
+    const topLight = new THREE.PointLight(0xffffff, 1800);
     topLight.position.set(-20, 30, 0);
     topLight.castShadow = true;
     topLight.shadow.mapSize.set(2048, 2048);
@@ -205,13 +205,13 @@ export function useDiceRenderer() {
         position.z = subCube.z + addition.z;
       }
 
-      const notchWave = (v) => {
+      const notchWave = (v: number) => {
         v = (1 / params.notchRadius) * v;
         v = Math.PI * Math.max(-1, Math.min(1, v));
         return params.notchDepth * (Math.cos(v) + 1);
       };
 
-      const notch = (pos) => notchWave(pos[0]) * notchWave(pos[1]);
+      const notch = (pos: number[]) => notchWave(pos[0]!) * notchWave(pos[1]!);
 
       const offset = 0.23 * params.diceSize;
 

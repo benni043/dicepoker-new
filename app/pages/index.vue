@@ -5,13 +5,12 @@ import type { RoundState, ScoreKey } from "#shared/utils/types";
 import DiceCanvas from "~/components/game/DiceCanvas.vue";
 
 const { status, data, send, open, close } = useWebSocket(`/ws/game`);
-// const gameComposable = useGame();
 
 const gameId = ref<string | null>(null);
 const playerId = ref<string | null>(null);
 const name = ref("player");
 
-const game = ref<any>(null);
+const game = ref<GameDTO | null>(null);
 const games = ref<{ id: string; status: string; players: string[] }[]>([]);
 
 const isMyTurn = computed(() => {
@@ -115,18 +114,13 @@ function connectWS() {
   });
 }
 
-function hold(i: number) {
-  const held = [...game.value!.roundState!.held];
-  held[i] = !held[i];
-
-  console.log(held);
-
+function hold(index: number) {
   send(
     JSON.stringify({
       gameId: gameId.value,
       playerId: playerId.value,
       action: "hold",
-      payload: { held },
+      payload: { index: index },
     }),
   );
 }
@@ -196,7 +190,7 @@ function removeIdFromLocalStorage() {
 
     <div v-else>
       <h3>Spiel {{ game.id }}</h3>
-      <p>Am Zug: {{ game.players[game.currentPlayerIndex].name }}</p>
+      <p>Am Zug: {{ game!.players[game!.currentPlayerIndex!]!.name }}</p>
 
       <div v-if="game.roundState">
         <div>
@@ -204,10 +198,10 @@ function removeIdFromLocalStorage() {
             v-for="(d, i) in game.roundState.dice"
             :key="i"
             style="cursor: pointer; margin: 5px"
-            @click="isMyTurn && hold(i)"
+            @click="hold(i)"
           >
             {{ d }}
-            <span v-if="game.roundState.held[i]">[H]</span>
+            <span v-if="game.roundState.held.includes(i)">[H]</span>
           </span>
         </div>
 
@@ -218,7 +212,7 @@ function removeIdFromLocalStorage() {
         <ScoreTable
           :players="game.players"
           :round-state="game.roundState"
-          :active-player-id="game.players[game.currentPlayerIndex].id"
+          :active-player-id="game.players[game.currentPlayerIndex]!.id"
           @select="onSelectScore"
         />
       </div>

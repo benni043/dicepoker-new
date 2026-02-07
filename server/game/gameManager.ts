@@ -18,13 +18,6 @@ export function createGame(playerCount: number, columns: number): Game {
     round: 0,
     roundState: null,
     winner: null,
-    // dicePhysics: {
-    //   world: null,
-    //   diceBodies: [],
-    //   rolling: false,
-    //   lastTime: Date.now(),
-    //   intervalId: null,
-    // },
     columns: columns,
   };
 
