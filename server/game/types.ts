@@ -13,7 +13,7 @@ export interface Game {
   round: number;
   roundState: RoundState | null;
   winner: Player | null;
-  dicePhysics: DicePhysicsState;
+  // dicePhysics: DicePhysicsState;
   columns: number;
 }
 
@@ -30,10 +30,15 @@ export function toGameDTO(game: Game): GameDTO {
   };
 }
 
-export interface DicePhysicsState {
-  world: CANNON.World | null;
-  diceBodies: CANNON.Body[];
-  rolling: boolean;
-  lastTime: number;
-  intervalId: NodeJS.Timeout | null;
+// export interface DicePhysicsState {
+//   world: CANNON.World | null;
+//   diceBodies: CANNON.Body[];
+//   rolling: boolean;
+//   lastTime: number;
+//   intervalId: NodeJS.Timeout | null;
+// }
+
+export interface DiceResult {
+  dice: number[];
+  seed: number;
 }

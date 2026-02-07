@@ -3,8 +3,7 @@ import { startGame } from "./stateMachine";
 import { nanoid } from "../utils/id";
 import { broadcastGame } from "./wsManager";
 import { assertGameNotStarted } from "~~/server/game/validation";
-import { initPhysics } from "~~/server/game/animate";
-import type { Player, ScoreColumn, ScoreKey } from "#shared/utils/types";
+import type { Player, ScoreColumn } from "#shared/utils/types";
 import { SCORE_KEYS } from "#shared/utils/scoring";
 
 const games = new Map<string, Game>();
@@ -19,17 +18,15 @@ export function createGame(playerCount: number, columns: number): Game {
     round: 0,
     roundState: null,
     winner: null,
-    dicePhysics: {
-      world: null,
-      diceBodies: [],
-      rolling: false,
-      lastTime: Date.now(),
-      intervalId: null,
-    },
+    // dicePhysics: {
+    //   world: null,
+    //   diceBodies: [],
+    //   rolling: false,
+    //   lastTime: Date.now(),
+    //   intervalId: null,
+    // },
     columns: columns,
   };
-
-  initPhysics(game);
 
   games.set(game.id, game);
   return game;

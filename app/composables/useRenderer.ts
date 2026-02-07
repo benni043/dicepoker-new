@@ -117,8 +117,13 @@ export function useDiceRenderer() {
     });
 
     const group = new THREE.Group();
-    group.add(new THREE.Mesh(createInnerGeometry(), innerMat));
-    group.add(new THREE.Mesh(createBoxGeometry(), outerMat));
+
+    const innerMesh = new THREE.Mesh(createInnerGeometry(), innerMat);
+    const outerMesh = new THREE.Mesh(createBoxGeometry(), outerMat);
+
+    outerMesh.castShadow = true;
+
+    group.add(innerMesh, outerMesh);
 
     return group;
   }
@@ -154,57 +159,98 @@ export function useDiceRenderer() {
       params.segments,
     );
 
-    const posAttr = boxGeometry.attributes.position as THREE.BufferAttribute;
-    const subCubeHalf = params.diceSize / 2 - params.edgeRadius;
+    const positionAttr = boxGeometry.attributes.position!;
+    const subCubeHalfSize = params.diceSize / 2 - params.edgeRadius;
 
-    const notchWave = (v: number) => {
-      v = (1 / params.notchRadius) * v;
-      v = Math.PI * Math.max(-1, Math.min(1, v));
-      return params.notchDepth * (Math.cos(v) + 1);
-    };
-
-    const notch = (pos: number[]) => notchWave(pos[0]!) * notchWave(pos[1]!);
-
-    const offset = 0.23 * params.diceSize;
-
-    for (let i = 0; i < posAttr.count; i++) {
-      let position = new THREE.Vector3().fromBufferAttribute(posAttr, i);
+    for (let i = 0; i < positionAttr.count; i++) {
+      let position = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
 
       const subCube = new THREE.Vector3(
         Math.sign(position.x),
         Math.sign(position.y),
         Math.sign(position.z),
-      ).multiplyScalar(subCubeHalf);
-
+      ).multiplyScalar(subCubeHalfSize);
       const addition = new THREE.Vector3().subVectors(position, subCube);
 
       if (
-        Math.abs(position.x) > subCubeHalf &&
-        Math.abs(position.y) > subCubeHalf &&
-        Math.abs(position.z) > subCubeHalf
+        Math.abs(position.x) > subCubeHalfSize &&
+        Math.abs(position.y) > subCubeHalfSize &&
+        Math.abs(position.z) > subCubeHalfSize
       ) {
         addition.normalize().multiplyScalar(params.edgeRadius);
         position = subCube.add(addition);
+      } else if (
+        Math.abs(position.x) > subCubeHalfSize &&
+        Math.abs(position.y) > subCubeHalfSize
+      ) {
+        addition.z = 0;
+        addition.normalize().multiplyScalar(params.edgeRadius);
+        position.x = subCube.x + addition.x;
+        position.y = subCube.y + addition.y;
+      } else if (
+        Math.abs(position.x) > subCubeHalfSize &&
+        Math.abs(position.z) > subCubeHalfSize
+      ) {
+        addition.y = 0;
+        addition.normalize().multiplyScalar(params.edgeRadius);
+        position.x = subCube.x + addition.x;
+        position.z = subCube.z + addition.z;
+      } else if (
+        Math.abs(position.y) > subCubeHalfSize &&
+        Math.abs(position.z) > subCubeHalfSize
+      ) {
+        addition.x = 0;
+        addition.normalize().multiplyScalar(params.edgeRadius);
+        position.y = subCube.y + addition.y;
+        position.z = subCube.z + addition.z;
       }
 
-      // Notches
-      const half = params.diceSize / 2;
+      const notchWave = (v) => {
+        v = (1 / params.notchRadius) * v;
+        v = Math.PI * Math.max(-1, Math.min(1, v));
+        return params.notchDepth * (Math.cos(v) + 1);
+      };
 
-      if (position.y === half) {
+      const notch = (pos) => notchWave(pos[0]) * notchWave(pos[1]);
+
+      const offset = 0.23 * params.diceSize;
+
+      if (position.y === params.diceSize / 2) {
         position.y -= notch([position.x, position.z]);
-      } else if (position.x === half) {
+      } else if (position.x === params.diceSize / 2) {
         position.x -= notch([position.y + offset, position.z + offset]);
-      } else if (position.z === half) {
+        position.x -= notch([position.y - offset, position.z - offset]);
+      } else if (position.z === params.diceSize / 2) {
+        position.z -= notch([position.x - offset, position.y + offset]);
         position.z -= notch([position.x, position.y]);
+        position.z -= notch([position.x + offset, position.y - offset]);
+      } else if (position.z === -(params.diceSize / 2)) {
+        position.z += notch([position.x + offset, position.y + offset]);
+        position.z += notch([position.x + offset, position.y - offset]);
+        position.z += notch([position.x - offset, position.y + offset]);
+        position.z += notch([position.x - offset, position.y - offset]);
+      } else if (position.x === -(params.diceSize / 2)) {
+        position.x += notch([position.y + offset, position.z + offset]);
+        position.x += notch([position.y + offset, position.z - offset]);
+        position.x += notch([position.y, position.z]);
+        position.x += notch([position.y - offset, position.z + offset]);
+        position.x += notch([position.y - offset, position.z - offset]);
+      } else if (position.y === -(params.diceSize / 2)) {
+        position.y += notch([position.x + offset, position.z + offset]);
+        position.y += notch([position.x + offset, position.z]);
+        position.y += notch([position.x + offset, position.z - offset]);
+        position.y += notch([position.x - offset, position.z + offset]);
+        position.y += notch([position.x - offset, position.z]);
+        position.y += notch([position.x - offset, position.z - offset]);
       }
 
-      posAttr.setXYZ(i, position.x, position.y, position.z);
+      positionAttr.setXYZ(i, position.x, position.y, position.z);
     }
 
     boxGeometry.deleteAttribute("normal");
     boxGeometry.deleteAttribute("uv");
-
     boxGeometry = BufferGeometryUtils.mergeVertices(boxGeometry);
+
     boxGeometry.computeVertexNormals();
 
     return boxGeometry;
@@ -218,28 +264,29 @@ export function useDiceRenderer() {
 
     const offset = params.diceSize / 2 - 0.02;
 
-    const geometries = [
-      base.clone().translate(0, 0, offset),
-      base.clone().translate(0, 0, -offset),
-      base
-        .clone()
-        .rotateX(Math.PI / 2)
-        .translate(0, offset, 0),
-      base
-        .clone()
-        .rotateX(Math.PI / 2)
-        .translate(0, -offset, 0),
-      base
-        .clone()
-        .rotateY(Math.PI / 2)
-        .translate(offset, 0, 0),
-      base
-        .clone()
-        .rotateY(Math.PI / 2)
-        .translate(-offset, 0, 0),
-    ];
-
-    return BufferGeometryUtils.mergeGeometries(geometries, false)!;
+    return BufferGeometryUtils.mergeGeometries(
+      [
+        base.clone().translate(0, 0, offset),
+        base.clone().translate(0, 0, -offset),
+        base
+          .clone()
+          .rotateX(Math.PI / 2)
+          .translate(0, -offset, 0),
+        base
+          .clone()
+          .rotateX(Math.PI / 2)
+          .translate(0, offset, 0),
+        base
+          .clone()
+          .rotateY(Math.PI / 2)
+          .translate(-offset, 0, 0),
+        base
+          .clone()
+          .rotateY(Math.PI / 2)
+          .translate(offset, 0, 0),
+      ],
+      false,
+    );
   }
 
   function render() {

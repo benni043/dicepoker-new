@@ -42,5 +42,6 @@ export interface Player {
 export interface RoundState {
   rollsLeft: number;
   dice: number[];
-  held: boolean[];
+  held: number[];
+  seed: number;
 }

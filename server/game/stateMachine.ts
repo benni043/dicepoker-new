@@ -5,12 +5,11 @@ import {
   assertCurrentTurn,
   assertGameNotFinished,
   assertRolesLeft,
-  assertRolling,
 } from "./validation";
-import { broadcastGame } from "./wsManager";
+import { broadcastAnimation, broadcastGame } from "./wsManager";
 import { removeGame } from "~~/server/game/gameManager";
-import { throwDice } from "~~/server/game/animate";
 import type { Player, Scorecell, ScoreKey } from "#shared/utils/types";
+import { simulateDiceRoll } from "./animate";
 
 export function startGame(game: Game) {
   game.status = "running";
@@ -23,48 +22,43 @@ export function startTurn(game: Game) {
   game.roundState = {
     rollsLeft: 3,
     dice: [1, 1, 1, 1, 1],
-    held: [false, false, false, false, false],
+    held: [],
+    seed: 0,
   };
 }
 
 export function roll(game: Game, playerId: string) {
   assertGameNotFinished(game);
   assertCurrentPlayer(game, playerId);
-  assertRolling(game);
   assertRolesLeft(game);
 
   const rs = game.roundState!;
 
-  throwDice(game);
+  const result = simulateDiceRoll(2, rs.dice.length - rs.held.length);
 
-  rs.rollsLeft--;
-}
+  rs.dice = [];
 
-export function onDiceFinished(game: Game, physicsResults: number[]) {
-  assertGameNotFinished(game);
-  assertRolling(game);
-
-  const rs = game.roundState!;
-  let resultIndex = 0;
-
-  for (let i = 0; i < rs.dice.length; i++) {
-    if (!rs.held[i]) {
-      rs.dice[i] = physicsResults[resultIndex];
-      resultIndex++;
+  for (let elem in rs.held) {
+    for (let res in result.dice) {
+      if (res === elem) {
+        rs.dice.push(elem);
+      }
     }
   }
 
-  broadcastGame(game);
+  rs.dice.push(...result.dice);
+  rs.seed = result.seed;
+  rs.rollsLeft--;
+
+  broadcastAnimation(game);
 }
 
-export function hold(game: Game, playerId: string, held: boolean[]) {
+export function hold(game: Game, playerId: string, held: number[]) {
   assertGameNotFinished(game);
   assertCurrentPlayer(game, playerId);
   assertCurrentTurn(game);
-  assertRolling(game);
   assertRolesLeft(game);
 
-  if (held.length !== 5) throw new Error("invalid-held");
   game.roundState!.held = held;
 }
 
@@ -77,7 +71,6 @@ export function score(
   assertGameNotFinished(game);
   assertCurrentPlayer(game, playerId);
   assertCurrentTurn(game);
-  assertRolling(game);
 
   const scorer = SCORERS[category];
   if (!scorer) throw new Error("invalid-category");

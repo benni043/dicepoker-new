@@ -24,16 +24,18 @@ export function broadcastGame(game: Game) {
 
 export function broadcastAnimation(
   game: Game,
-  diceStates: {
-    position: { x: number; y: number; z: number };
-    quaternion: { x: number; y: number; z: number; w: number };
-  }[],
+  // diceStates: {
+  // position: { x: number; y: number; z: number };
+  // quaternion: { x: number; y: number; z: number; w: number };
+  // }[],
 ) {
   for (const player of game.players) {
     const peer = peers.get(player.id);
     if (!peer) continue;
 
-    const renderInformation = { renderInformation: 12344 };
+    // const renderInformation = { renderInformation: 12344 };
+
+    const renderInformation = game.roundState;
 
     peer.send(JSON.stringify({ type: "renderInformation", renderInformation }));
   }
