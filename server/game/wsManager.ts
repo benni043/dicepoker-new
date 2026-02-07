@@ -22,18 +22,11 @@ export function broadcastGame(game: Game) {
   }
 }
 
-export function broadcastAnimation(
-  game: Game,
-  // diceStates: {
-  // position: { x: number; y: number; z: number };
-  // quaternion: { x: number; y: number; z: number; w: number };
-  // }[],
-) {
+export function broadcastAnimation(game: Game) {
+  console.log("roll2");
   for (const player of game.players) {
     const peer = peers.get(player.id);
     if (!peer) continue;
-
-    // const renderInformation = { renderInformation: 12344 };
 
     const renderInformation = game.roundState;
 

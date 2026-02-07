@@ -1,23 +1,35 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useDiceRenderer } from "~/composables/useRenderer";
 
 const canvas = ref<HTMLCanvasElement | null>(null);
-const renderer = useDiceRenderer();
 
-defineExpose({
-  throwDice,
+const { gameId, playerId } = useLobby();
+const { renderSeed, game, roll } = useGame(gameId, playerId);
+
+const diceCount = computed(() => {
+  return game.value?.roundState?.dice?.length ?? 5;
 });
 
-function throwDice(seed: number) {
-  renderer.throwDice(seed);
+const { initScene, throwDice } = useDiceRenderer(diceCount);
+
+watch(renderSeed, () => {
+  console.log(renderSeed);
+
+  // throwDice(renderSeed.value!);
+});
+
+function throwDiceClick() {
+  roll();
 }
 
 onMounted(() => {
-  renderer.initScene(canvas.value!);
+  initScene(canvas.value!);
 });
 </script>
 
 <template>
   <canvas ref="canvas" />
+
+  <UButton @click="throwDiceClick">throw</UButton>
 </template>

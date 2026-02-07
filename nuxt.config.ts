@@ -12,5 +12,8 @@ export default defineNuxtConfig({
   },
   css: ["~/assets/css/main.css"],
   vite: { plugins: [tailwindcss()] },
-  modules: ["@vueuse/nuxt"],
+  modules: ["@vueuse/nuxt", "@nuxt/ui"],
+  ui: {
+    colorMode: false,
+  },
 });

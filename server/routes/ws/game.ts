@@ -30,6 +30,8 @@ export default defineWebSocketHandler({
 
     registerPeer(playerId, peer);
 
+    console.log("incomming message");
+
     try {
       const game = getGame(gameId);
 

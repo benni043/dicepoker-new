@@ -1,150 +1,21 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
 import ScoreTable from "~/components/game/ScoreTable.vue";
-import type { RoundState, ScoreKey } from "#shared/utils/types";
+import type { ScoreKey } from "#shared/utils/types";
 import DiceCanvas from "~/components/game/DiceCanvas.vue";
 
-const { status, data, send, open, close } = useWebSocket(`/ws/game`);
+const {
+  games,
+  gameId,
+  playerId,
+  name,
+  loadGames,
+  createGame,
+  joinGame,
+  readyUp,
+  clearPlayer,
+} = useLobby();
 
-const gameId = ref<string | null>(null);
-const playerId = ref<string | null>(null);
-const name = ref("player");
-
-const game = ref<GameDTO | null>(null);
-const games = ref<{ id: string; status: string; players: string[] }[]>([]);
-
-const isMyTurn = computed(() => {
-  if (!game.value || !playerId.value) return false;
-  return (
-    game.value.players[game.value.currentPlayerIndex]?.id === playerId.value
-  );
-});
-
-async function createGame() {
-  const game = await $fetch("/api/games", {
-    method: "POST",
-    body: { playerCount: 2, columns: 2 },
-  });
-
-  gameId.value = game.id;
-}
-
-async function joinGame() {
-  if (!gameId.value) return;
-
-  try {
-    const localStorageId = localStorage.getItem("playerId");
-
-    if (localStorageId) {
-      await $fetch(`/api/games/${gameId.value}/rejoin`, {
-        method: "POST",
-        body: { playerId: localStorageId },
-      });
-
-      playerId.value = localStorageId;
-
-      connectWS();
-
-      return;
-    }
-
-    const player = await $fetch(`/api/games/${gameId.value}/join`, {
-      method: "POST",
-      body: { name: name.value },
-    });
-
-    playerId.value = player.id;
-    localStorage.setItem("playerId", player.id);
-  } catch (e: any) {
-    alert(e.data?.message ?? "Unbekannter Fehler");
-  }
-}
-
-async function loadGames() {
-  games.value =
-    await $fetch<{ id: string; status: string; players: string[] }[]>(
-      "/api/games",
-    );
-}
-
-async function readyUp() {
-  try {
-    await $fetch(`/api/games/${gameId.value}/ready`, {
-      method: "POST",
-      body: { playerId: playerId.value },
-    });
-
-    connectWS();
-  } catch (e: any) {
-    alert(e.data?.message ?? "Unbekannter Fehler");
-  }
-}
-
-const diceCanvas = ref<InstanceType<typeof DiceCanvas> | null>(null);
-
-function connectWS() {
-  send(
-    JSON.stringify({
-      gameId: gameId.value,
-      playerId: playerId.value,
-      action: "init",
-    }),
-  );
-
-  watch(data, (newValue) => {
-    const msg = JSON.parse(newValue);
-
-    if (msg.type === "state") {
-      game.value = msg.gameDTO;
-
-      if (game.value!.status === "finished") {
-        removeIdFromLocalStorage();
-      }
-
-      console.log(game.value);
-    }
-
-    if (msg.type === "renderInformation") {
-      const rs: RoundState = msg.renderInformation;
-
-      diceCanvas.value?.throwDice(rs.seed);
-    }
-
-    if (msg.type === "error") alert(msg.message);
-  });
-}
-
-function hold(index: number) {
-  send(
-    JSON.stringify({
-      gameId: gameId.value,
-      playerId: playerId.value,
-      action: "hold",
-      payload: { index: index },
-    }),
-  );
-}
-
-function score(type: string, column: number) {
-  send(
-    JSON.stringify({
-      gameId: gameId.value,
-      playerId: playerId.value,
-      action: "score",
-      payload: { category: type, column: column },
-    }),
-  );
-}
-
-function roll() {
-  send(
-    JSON.stringify({
-      gameId: gameId.value,
-      playerId: playerId.value,
-      action: "roll",
-    }),
-  );
-}
+const { game, connectWS, hold, score } = useGame(gameId, playerId);
 
 function onSelectScore(payload: {
   playerId: string;
@@ -155,37 +26,45 @@ function onSelectScore(payload: {
   score(payload.key, payload.columnIndex);
 }
 
-function removeIdFromLocalStorage() {
-  localStorage.removeItem("playerId");
+function ready() {
+  readyUp();
+  connectWS();
 }
+
+onMounted(() => {
+  loadGames();
+});
 </script>
 
 <template>
   <div>
     <h1>Würfelpoker Test</h1>
 
-    <button @click="removeIdFromLocalStorage()">remove id from storage</button>
+    <UButton @click="clearPlayer()">remove id from storage</UButton>
 
     <div>
-      <button @click="loadGames">Spiele laden</button>
+      <UButton @click="loadGames">Spiele laden</UButton>
 
       <div v-for="g in games" :key="g.id">
         <span>{{ g.id }} ({{ g.players.length }} Spieler)</span>
-        <button @click="gameId = g.id">Beitreten</button>
+        <UButton @click="gameId = g.id">Beitreten</UButton>
       </div>
     </div>
 
+    {{ gameId }}
+    {{ playerId }}
+
     <div v-if="!gameId">
-      <button @click="createGame">Game erstellen</button>
+      <UButton @click="createGame">Game erstellen</UButton>
     </div>
 
     <div v-else-if="!playerId">
       <input v-model="name" />
-      <button @click="joinGame">Beitreten</button>
+      <UButton @click="joinGame">Beitreten</UButton>
     </div>
 
     <div v-else-if="!game || game.status === 'lobby'">
-      <button @click="readyUp">Ready</button>
+      <UButton @click="ready()">Ready</UButton>
     </div>
 
     <div v-else>
@@ -206,8 +85,6 @@ function removeIdFromLocalStorage() {
         </div>
 
         <p>Würfe übrig: {{ game.roundState.rollsLeft }}</p>
-
-        <button @click="roll" :disabled="!isMyTurn">Roll</button>
 
         <ScoreTable
           :players="game.players"

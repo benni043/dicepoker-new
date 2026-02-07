@@ -3,7 +3,7 @@ import * as CANNON from "cannon-es";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { Mulberry32 } from "#shared/utils/render";
 
-export function useDiceRenderer() {
+export function useDiceRenderer(diceCount: Ref<number>) {
   let scene!: THREE.Scene;
   let camera!: THREE.PerspectiveCamera;
   let renderer!: THREE.WebGLRenderer;
@@ -13,7 +13,7 @@ export function useDiceRenderer() {
   const params = {
     width: 600,
     height: 400,
-    numberOfDice: 5,
+    numberOfDice: diceCount.value,
     diceSize: 2,
     segments: 40,
     edgeRadius: 0.14,

@@ -32,6 +32,8 @@ export function roll(game: Game, playerId: string) {
   assertCurrentPlayer(game, playerId);
   assertRolesLeft(game);
 
+  console.log("roll1");
+
   const rs = game.roundState!;
 
   const toHold: number[] = [];
